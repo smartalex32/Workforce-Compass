@@ -31,6 +31,10 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EmployeeDialog, WorkspaceDialog } from '@/components/management-dialogs';
 import type { Employee, Workspace } from '@/lib/domain';
+import type {
+  WorkspaceContexts,
+  WorkspaceSelection,
+} from '@/lib/workspace-repository';
 import {
   calculateReplacementCost,
   employeeMetrics,
@@ -45,6 +49,18 @@ type Visibility = {
   team: boolean;
   employees: boolean;
 };
+
+const emptyContexts: WorkspaceContexts = {
+  organizations: [],
+  laborMarkets: [],
+  disciplines: [],
+  ladders: [],
+  datasets: [],
+};
+
+function includeCurrent<T extends { id: string }>(items: T[], current: T): T[] {
+  return [...new Map([...items, current].map((item) => [item.id, item])).values()];
+}
 
 function formatMoney(value: number, currencyCode: string, compact = false) {
   try {
@@ -748,6 +764,7 @@ export function WorkforceExplorer({
   const [employeeDialogOpen, setEmployeeDialogOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [workspaceDialogOpen, setWorkspaceDialogOpen] = useState(false);
+  const [contexts, setContexts] = useState<WorkspaceContexts>(emptyContexts);
   const [saveState, setSaveState] = useState<'loading' | 'saved' | 'saving' | 'error'>('loading');
   const [visibility, setVisibility] = useState<Visibility>({
     band: true,
@@ -777,6 +794,65 @@ export function WorkforceExplorer({
     setDetailOpen(true);
   };
 
+  const contextOptions = useMemo(() => {
+    const organizations = includeCurrent(contexts.organizations, {
+      ...workspace.organization,
+      defaultLaborMarketId: workspace.laborMarket.id,
+    });
+    const laborMarkets = includeCurrent(
+      contexts.laborMarkets.filter(
+        (market) => market.organizationId === workspace.organization.id,
+      ),
+      { ...workspace.laborMarket, organizationId: workspace.organization.id },
+    );
+    const disciplines = includeCurrent(
+      contexts.disciplines.filter(
+        (discipline) => discipline.organizationId === workspace.organization.id,
+      ),
+      { ...workspace.discipline, organizationId: workspace.organization.id },
+    );
+    const ladders = includeCurrent(
+      contexts.ladders.filter(
+        (ladder) => ladder.disciplineId === workspace.discipline.id,
+      ),
+      { ...workspace.ladder, disciplineId: workspace.discipline.id },
+    );
+    const datasets = includeCurrent(
+      contexts.datasets.filter(
+        (dataset) => dataset.laborMarketId === workspace.laborMarket.id,
+      ),
+      { ...workspace.dataset, laborMarketId: workspace.laborMarket.id, active: true },
+    );
+    return { organizations, laborMarkets, disciplines, ladders, datasets };
+  }, [contexts, workspace]);
+
+  const refreshContexts = useCallback(async () => {
+    const response = await fetch('/api/workspace/contexts');
+    if (!response.ok) throw new Error('Context load failed');
+    const result = (await response.json()) as { contexts: WorkspaceContexts };
+    setContexts(result.contexts);
+  }, []);
+
+  const loadSelection = useCallback(async (selection: WorkspaceSelection) => {
+    setSaveState('loading');
+    try {
+      const parameters = new URLSearchParams();
+      for (const [key, value] of Object.entries(selection)) {
+        if (value) parameters.set(key, value);
+      }
+      const response = await fetch(`/api/workspace?${parameters.toString()}`);
+      if (!response.ok) throw new Error('Workspace load failed');
+      const result = (await response.json()) as { workspace: Workspace | null };
+      if (!result.workspace) throw new Error('Workspace unavailable');
+      setWorkspace(result.workspace);
+      setSelectedEmployee(null);
+      setDetailOpen(false);
+      setSaveState('saved');
+    } catch {
+      setSaveState('error');
+    }
+  }, []);
+
   const persistWorkspace = useCallback(async (next: Workspace): Promise<boolean> => {
     setSaveState('saving');
     try {
@@ -786,14 +862,21 @@ export function WorkforceExplorer({
         body: JSON.stringify({ workspace: next }),
       });
       if (!response.ok) throw new Error('Save failed');
-      setWorkspace(next);
+      const result = (await response.json()) as { workspace?: Workspace };
+      setWorkspace(result.workspace ?? next);
       setSaveState('saved');
+      try {
+        await refreshContexts();
+      } catch {
+        // The workspace is saved; the active context remains usable until the
+        // catalog can be refreshed on the next load.
+      }
       return true;
     } catch {
       setSaveState('error');
       return false;
     }
-  }, []);
+  }, [refreshContexts]);
 
   useEffect(() => {
     let active = true;
@@ -805,6 +888,8 @@ export function WorkforceExplorer({
         if (!active) return;
         if (result.workspace) {
           setWorkspace(result.workspace);
+          await refreshContexts();
+          if (!active) return;
           setSaveState('saved');
         } else {
           await persistWorkspace(initialWorkspace);
@@ -817,7 +902,7 @@ export function WorkforceExplorer({
     return () => {
       active = false;
     };
-  }, [initialWorkspace, persistWorkspace]);
+  }, [initialWorkspace, persistWorkspace, refreshContexts]);
 
   const saveEmployee = useCallback(async (employee: Employee) => {
     const exists = workspace.employees.some((item) => item.id === employee.id);
@@ -998,54 +1083,47 @@ export function WorkforceExplorer({
         </div>
         <div className="filter-row">
           <div className="filter-label">
-            <span>Labor market</span>
-            <Select defaultValue={workspace.laborMarket.id}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
+            <span>Organization</span>
+            <Select value={workspace.organization.id} disabled={saveState === 'loading' || saveState === 'saving'} onValueChange={(organizationId) => void loadSelection({ organizationId: String(organizationId) })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value={workspace.laborMarket.id}>
-                  {workspace.laborMarket.name}
-                </SelectItem>
+                {contextOptions.organizations.map((organization) => <SelectItem key={organization.id} value={organization.id}>{organization.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="filter-label">
+            <span>Labor market</span>
+            <Select value={workspace.laborMarket.id} disabled={saveState === 'loading' || saveState === 'saving'} onValueChange={(laborMarketId) => void loadSelection({ organizationId: workspace.organization.id, laborMarketId: String(laborMarketId), disciplineId: workspace.discipline.id, ladderId: workspace.ladder.id })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {contextOptions.laborMarkets.map((market) => <SelectItem key={market.id} value={market.id}>{market.name}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
           <div className="filter-label">
             <span>Discipline</span>
-            <Select defaultValue={workspace.discipline.id}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
+            <Select value={workspace.discipline.id} disabled={saveState === 'loading' || saveState === 'saving'} onValueChange={(disciplineId) => void loadSelection({ organizationId: workspace.organization.id, laborMarketId: workspace.laborMarket.id, disciplineId: String(disciplineId), datasetId: workspace.dataset.id })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value={workspace.discipline.id}>
-                  {workspace.discipline.name}
-                </SelectItem>
+                {contextOptions.disciplines.map((discipline) => <SelectItem key={discipline.id} value={discipline.id}>{discipline.name}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
           <div className="filter-label">
             <span>Career ladder</span>
-            <Select defaultValue={workspace.ladder.id}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
+            <Select value={workspace.ladder.id} disabled={saveState === 'loading' || saveState === 'saving'} onValueChange={(ladderId) => void loadSelection({ organizationId: workspace.organization.id, laborMarketId: workspace.laborMarket.id, disciplineId: workspace.discipline.id, ladderId: String(ladderId), datasetId: workspace.dataset.id })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value={workspace.ladder.id}>
-                  {workspace.ladder.name}
-                </SelectItem>
+                {contextOptions.ladders.map((ladder) => <SelectItem key={ladder.id} value={ladder.id}>{ladder.name}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
           <div className="filter-label">
             <span>Market dataset</span>
-            <Select defaultValue={workspace.dataset.id}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
+            <Select value={workspace.dataset.id} disabled={saveState === 'loading' || saveState === 'saving'} onValueChange={(datasetId) => void loadSelection({ organizationId: workspace.organization.id, laborMarketId: workspace.laborMarket.id, disciplineId: workspace.discipline.id, ladderId: workspace.ladder.id, datasetId: String(datasetId) })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value={workspace.dataset.id}>
-                  {workspace.dataset.name}
-                </SelectItem>
+                {contextOptions.datasets.map((dataset) => <SelectItem key={dataset.id} value={dataset.id}>{dataset.name}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>

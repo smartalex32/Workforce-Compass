@@ -25,14 +25,14 @@ Status values: **Implemented locally** means complete in the current checkout bu
 
 | ID | Requirement | Status | Issue |
 |---|---|---|---|
-| R-MKT-01 | Create and edit organization, labor market, discipline, ladder, and dataset context in the UI. | Partial | [#3](https://github.com/smartalex32/Workforce-Compass/issues/3) |
+| R-MKT-01 | Create and edit organization, labor market, discipline, ladder, and dataset context in the UI. | Implemented locally | [#3](https://github.com/smartalex32/Workforce-Compass/issues/3) |
 | R-MKT-02 | Add, rename, describe, order, and remove arbitrary levels in the UI. | Implemented locally | [#3](https://github.com/smartalex32/Workforce-Compass/issues/3) |
 | R-MKT-03 | Enter P25, P50, and P75 base compensation per level. | Implemented locally | [#3](https://github.com/smartalex32/Workforce-Compass/issues/3) |
 | R-MKT-04 | Enforce positive values and P25 ≤ P50 ≤ P75 for every entered row. | Implemented locally | [#3](https://github.com/smartalex32/Workforce-Compass/issues/3) |
 | R-MKT-05 | Allow a level to have no market row and present that analysis as unavailable. | Implemented locally | [#3](https://github.com/smartalex32/Workforce-Compass/issues/3) |
 | R-MKT-06 | Retain dataset name, source, description, and effective date. | Implemented locally | [#3](https://github.com/smartalex32/Workforce-Compass/issues/3) |
-| R-MKT-07 | Support multiple datasets in the architecture and one selected dataset in the MVP UI. | Partial | [#3](https://github.com/smartalex32/Workforce-Compass/issues/3) |
-| R-MKT-08 | Filter the analysis by labor market, discipline, ladder, and market dataset. | Partial | [#3](https://github.com/smartalex32/Workforce-Compass/issues/3) |
+| R-MKT-07 | Support multiple datasets in the architecture and one selected dataset in the MVP UI. | Implemented locally | [#3](https://github.com/smartalex32/Workforce-Compass/issues/3) |
+| R-MKT-08 | Filter the analysis by labor market, discipline, ladder, and market dataset. | Implemented locally | [#3](https://github.com/smartalex32/Workforce-Compass/issues/3) |
 | R-MKT-09 | Make all MVP configuration editable without source or configuration-file changes. | Implemented locally | [#3](https://github.com/smartalex32/Workforce-Compass/issues/3) |
 | R-MGT-01 | Clearly label observed data, market data, planning assumptions, and calculated metrics. | Implemented locally | [#3](https://github.com/smartalex32/Workforce-Compass/issues/3) |
 | R-MGT-02 | Use direct editing and progressive disclosure instead of raw configuration. | Implemented locally | [#3](https://github.com/smartalex32/Workforce-Compass/issues/3) |
@@ -147,10 +147,10 @@ Status values: **Implemented locally** means complete in the current checkout bu
 | R-ENG-08 | Provide a relational migration for all core entities. | Implemented locally | [#9](https://github.com/smartalex32/Workforce-Compass/issues/9) |
 | R-ENG-09 | Provide web-agent-readable summary and employee-add actions. | Implemented locally | [#9](https://github.com/smartalex32/Workforce-Compass/issues/9) |
 | R-ENG-10 | Document setup, architecture, validation, privacy, and known limitations. | Implemented locally | [#9](https://github.com/smartalex32/Workforce-Compass/issues/9) |
-| R-ACC-01 | A user can create a discipline and career ladder. | Partial | [#9](https://github.com/smartalex32/Workforce-Compass/issues/9) |
+| R-ACC-01 | A user can create a discipline and career ladder. | Implemented locally | [#9](https://github.com/smartalex32/Workforce-Compass/issues/9) |
 | R-ACC-02 | A user can define arbitrary ordered levels. | Implemented locally | [#9](https://github.com/smartalex32/Workforce-Compass/issues/9) |
-| R-ACC-03 | A user can create a labor market. | Partial | [#9](https://github.com/smartalex32/Workforce-Compass/issues/9) |
-| R-ACC-04 | A user can create a market dataset. | Partial | [#9](https://github.com/smartalex32/Workforce-Compass/issues/9) |
+| R-ACC-03 | A user can create a labor market. | Implemented locally | [#9](https://github.com/smartalex32/Workforce-Compass/issues/9) |
+| R-ACC-04 | A user can create a market dataset. | Implemented locally | [#9](https://github.com/smartalex32/Workforce-Compass/issues/9) |
 | R-ACC-05 | A user can enter P25/P50/P75 compensation for each available level. | Implemented locally | [#9](https://github.com/smartalex32/Workforce-Compass/issues/9) |
 | R-ACC-06 | A user can add employees and assign salary and level. | Implemented locally | [#9](https://github.com/smartalex32/Workforce-Compass/issues/9) |
 | R-ACC-07 | Employees are plotted against the market compensation band. | Implemented locally | [#9](https://github.com/smartalex32/Workforce-Compass/issues/9) |
@@ -162,7 +162,7 @@ Status values: **Implemented locally** means complete in the current checkout bu
 | R-ACC-13 | The application calculates estimated replacement cost for an employee. | Implemented locally | [#9](https://github.com/smartalex32/Workforce-Compass/issues/9) |
 | R-ACC-14 | The employee detail exposes each component contributing to the replacement estimate. | Implemented locally | [#9](https://github.com/smartalex32/Workforce-Compass/issues/9) |
 | R-ACC-15 | Employees can be viewed on the Market Gap × Replacement Cost visualization. | Implemented locally | [#9](https://github.com/smartalex32/Workforce-Compass/issues/9) |
-| R-ACC-16 | Changing among multiple markets, disciplines, ladders, or datasets updates the analysis. | Planned | [#9](https://github.com/smartalex32/Workforce-Compass/issues/9) |
+| R-ACC-16 | Changing among multiple markets, disciplines, ladders, or datasets updates the analysis. | Implemented locally | [#9](https://github.com/smartalex32/Workforce-Compass/issues/9) |
 | R-ACC-17 | Reloading the application preserves configured data. | Implemented locally | [#9](https://github.com/smartalex32/Workforce-Compass/issues/9) |
 | R-ACC-18 | Missing required inputs produce clear “Not available” states. | Implemented locally | [#9](https://github.com/smartalex32/Workforce-Compass/issues/9) |
 | R-ACC-19 | All primary functionality is available without editing source or configuration files. | Implemented locally | [#9](https://github.com/smartalex32/Workforce-Compass/issues/9) |

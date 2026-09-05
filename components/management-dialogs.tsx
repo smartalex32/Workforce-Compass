@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, Save, Trash2 } from 'lucide-react';
+import { CopyPlus, Plus, Save, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -33,6 +33,10 @@ import {
 } from '@/components/ui/alert-dialog';
 import type { Employee, HiringAssumption, MarketPoint, Workspace } from '@/lib/domain';
 import { validateMarketPoint } from '@/lib/domain';
+import {
+  createWorkspaceContext,
+  type ContextCreationKind,
+} from '@/lib/context-management';
 
 function numericValue(value: string): number {
   const parsed = Number(value);
@@ -168,6 +172,12 @@ function MarketEditor({ draft, setDraft }: { draft: Workspace; setDraft: (next: 
     const nextPoint = { ...existing, [field]: value };
     setDraft({ ...draft, market: [...draft.market.filter((point) => point.levelId !== levelId), nextPoint] });
   }
+  function clearMarket(levelId: string) {
+    setDraft({
+      ...draft,
+      market: draft.market.filter((point) => point.levelId !== levelId),
+    });
+  }
   return (
     <div className="editor-panel">
       <div className="editor-intro">
@@ -185,7 +195,7 @@ function MarketEditor({ draft, setDraft }: { draft: Workspace; setDraft: (next: 
                 return <tr key={level.id}>
                   <td><strong>{level.name}</strong><small>{level.description}</small></td>
                   {(['p25', 'p50', 'p75'] as const).map((field) => <td key={field}><Input aria-label={`${level.name} ${field}`} type="number" min="0" step="1000" value={point[field] || ''} onChange={(event) => updateMarket(level.id, field, numericValue(event.target.value))} /></td>)}
-                  <td><span className={`validation-state ${valid ? 'valid' : existingPoint ? 'invalid' : 'missing'}`}>{valid ? 'Ready' : existingPoint ? 'Check range' : 'Not available'}</span></td>
+                  <td><div className="market-row-status"><span className={`validation-state ${valid ? 'valid' : existingPoint ? 'invalid' : 'missing'}`}>{valid ? 'Ready' : existingPoint ? 'Check range' : 'Not available'}</span>{existingPoint && <Button type="button" variant="ghost" size="sm" onClick={() => clearMarket(level.id)}>Clear</Button>}</div></td>
                 </tr>;
               })}
           </tbody>
@@ -250,6 +260,20 @@ export function WorkspaceDialog({
   const [draft, setDraft] = useState(workspace);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [creationKind, setCreationKind] = useState<ContextCreationKind>('dataset');
+  const isNewContext =
+    draft.organization.id !== workspace.organization.id ||
+    draft.laborMarket.id !== workspace.laborMarket.id ||
+    draft.discipline.id !== workspace.discipline.id ||
+    draft.ladder.id !== workspace.ladder.id ||
+    draft.dataset.id !== workspace.dataset.id;
+
+  function startNewContext() {
+    setDraft(
+      createWorkspaceContext(workspace, creationKind, () => crypto.randomUUID()),
+    );
+    setError(null);
+  }
 
   function addLevel() {
     const order = Math.max(0, ...draft.levels.map((level) => level.order)) + 1;
@@ -282,6 +306,10 @@ export function WorkspaceDialog({
       setError('Add at least one named, ordered level.');
       return;
     }
+    if (new Set(draft.levels.map((level) => level.order)).size !== draft.levels.length) {
+      setError('Each level needs a unique ordering value.');
+      return;
+    }
     if (draft.market.some((point) => !validateMarketPoint(point))) {
       setError('Entered market ranges must be positive and satisfy P25 ≤ P50 ≤ P75.');
       return;
@@ -307,7 +335,21 @@ export function WorkspaceDialog({
         </TabsList>
         <TabsContent value="structure">
           <div className="editor-panel structure-editor">
-            <div className="editor-intro"><div><strong>Analysis context</strong><p>The active organization, market, and career path.</p></div><span className="data-badge observed-badge">Configuration</span></div>
+            <div className="editor-intro"><div><strong>Analysis context</strong><p>The active organization, market, and career path.</p></div><span className="data-badge observed-badge">{isNewContext ? 'New context' : 'Configuration'}</span></div>
+            <div className="context-create-row">
+              <div><strong>Create another context</strong><p>Start a related scope, then review its names and levels before saving.</p></div>
+              <Select value={creationKind} onValueChange={(value) => setCreationKind(value as ContextCreationKind)}>
+                <SelectTrigger className="dialog-select"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="organization">Organization</SelectItem>
+                  <SelectItem value="laborMarket">Labor market</SelectItem>
+                  <SelectItem value="discipline">Discipline</SelectItem>
+                  <SelectItem value="ladder">Career ladder</SelectItem>
+                  <SelectItem value="dataset">Market dataset</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button type="button" variant="outline" onClick={startNewContext}><CopyPlus /> Start new</Button>
+            </div>
             <div className="form-grid context-fields">
               <label><span>Organization</span><Input value={draft.organization.name} onChange={(event) => setDraft({ ...draft, organization: { ...draft.organization, name: event.target.value } })} /></label>
               <label><span>Labor market</span><Input value={draft.laborMarket.name} onChange={(event) => setDraft({ ...draft, laborMarket: { ...draft.laborMarket, name: event.target.value } })} /></label>
@@ -316,6 +358,11 @@ export function WorkspaceDialog({
               <label><span>Dataset name</span><Input value={draft.dataset.name} onChange={(event) => setDraft({ ...draft, dataset: { ...draft.dataset, name: event.target.value } })} /></label>
               <label><span>Effective date</span><Input type="date" value={draft.dataset.effectiveDate ?? ''} onChange={(event) => setDraft({ ...draft, dataset: { ...draft.dataset, effectiveDate: event.target.value } })} /></label>
               <label><span>Currency</span><Input maxLength={3} value={draft.organization.currency} onChange={(event) => setDraft({ ...draft, organization: { ...draft.organization, currency: event.target.value.toUpperCase() } })} placeholder="USD" /></label>
+              <label><span>Dataset source <small>optional</small></span><Input value={draft.dataset.source ?? ''} onChange={(event) => setDraft({ ...draft, dataset: { ...draft.dataset, source: event.target.value } })} placeholder="Survey or estimate source" /></label>
+              <label><span>Labor market description <small>optional</small></span><Input value={draft.laborMarket.description ?? ''} onChange={(event) => setDraft({ ...draft, laborMarket: { ...draft.laborMarket, description: event.target.value } })} /></label>
+              <label><span>Discipline description <small>optional</small></span><Input value={draft.discipline.description ?? ''} onChange={(event) => setDraft({ ...draft, discipline: { ...draft.discipline, description: event.target.value } })} /></label>
+              <label><span>Ladder description <small>optional</small></span><Input value={draft.ladder.description ?? ''} onChange={(event) => setDraft({ ...draft, ladder: { ...draft.ladder, description: event.target.value } })} /></label>
+              <label className="field-wide"><span>Dataset description <small>optional</small></span><Textarea value={draft.dataset.description ?? ''} onChange={(event) => setDraft({ ...draft, dataset: { ...draft.dataset, description: event.target.value } })} /></label>
             </div>
             <div className="level-heading"><div><strong>Ordered levels</strong><p>Ordering controls horizontal chart position.</p></div><Button variant="outline" size="sm" onClick={addLevel}><Plus /> Add level</Button></div>
             <div className="level-list">
@@ -332,7 +379,7 @@ export function WorkspaceDialog({
         <TabsContent value="assumptions"><AssumptionEditor draft={draft} setDraft={setDraft} /></TabsContent>
       </Tabs>
       {error && <p className="form-error modal-error">{error}</p>}
-      <DialogFooter className="management-footer"><span /><div><Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button><Button onClick={save} disabled={submitting}><Save /> {submitting ? 'Saving…' : 'Save workspace'}</Button></div></DialogFooter>
+      <DialogFooter className="management-footer"><span /><div><Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button><Button onClick={save} disabled={submitting}><Save /> {submitting ? 'Saving…' : isNewContext ? 'Create context' : 'Save workspace'}</Button></div></DialogFooter>
     </DialogContent>
   </Dialog>;
 }

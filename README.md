@@ -12,16 +12,17 @@ Retention exposure is a planning metric, not a prediction that an employee will 
 
 ## Current capabilities
 
-- Configure the active organization, labor market, discipline, ladder, arbitrary levels, and market dataset.
+- Create and edit organizations, labor markets, disciplines, ladders, arbitrary levels, and named market datasets.
 - Enter validated P25/P50/P75 ranges and preserve missing rows as unavailable.
 - Add, edit, delete, level, and compensate employees.
 - Inspect a market band, monotone market median, team-level median curve, and individual observations.
 - Select an employee for market gap, team gap, market position, replacement-cost components, and retention exposure.
 - Configure time-to-hire, ramp, vacancy, productivity-loss, recruiting, interview, relocation/signing, and other cost assumptions by level.
 - Switch among Compensation Curve, Replacement Exposure, and Market Gap × Cost views.
-- Persist the active workspace in Cloudflare D1.
+- Switch persisted organization, market, discipline, ladder, and dataset contexts while every linked analysis view updates together.
+- Persist each scoped workspace in Cloudflare D1 without replacing unrelated contexts.
 
-The relational schema and persistence API support multiple organizations, markets, disciplines, ladders, and datasets without replacing unrelated scopes. The current UI edits and displays one active workspace; multi-context creation and switching remain tracked in the [roadmap](./ROADMAP.md).
+The relational schema, persistence API, management editor, and analysis filters support multiple organizations, markets, disciplines, ladders, and datasets without replacing unrelated scopes.
 
 ## Product documentation
 
@@ -55,6 +56,7 @@ GitHub Actions runs the same locked-install, test, typecheck, lint, and producti
 - `lib/domain.ts` contains deterministic compensation, team median, monotone curve, replacement-cost, and retention-exposure calculations.
 - `db/schema.ts` defines the relational organization, labor market, discipline, ladder, level, dataset, employee, market compensation, and assumption entities.
 - `lib/workspace-repository.ts` owns scope-preserving D1 reads, writes, context discovery, and parent/scope conflict protection.
+- `lib/context-management.ts` creates new related scopes while preserving only data that remains valid for the selected hierarchy.
 - `app/api/workspace/route.ts` validates requests and exposes the persistence boundary for analysis workspaces.
 - `components/workforce-explorer.tsx` owns the primary visualization and linked analysis views.
 - `components/management-dialogs.tsx` contains employee, career structure, market data, and planning assumption editors.
