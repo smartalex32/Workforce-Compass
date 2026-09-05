@@ -88,6 +88,29 @@ describe('workspace repository', () => {
 
   afterEach(() => adapter.close());
 
+  it('persists employee creation, edits, level changes, and deletion across reloads without altering market data', async () => {
+    const workspace = structuredClone(sampleWorkspace);
+    const newEmployee = { id: 'new-employee', name: 'Alex Chen', levelId: workspace.levels[0].id, salary: 93123.45 };
+    workspace.employees.push(newEmployee);
+    await saveWorkspace(db, workspace);
+    const created = (await loadWorkspace(db))!;
+    expect(created.employees.find((employee) => employee.id === newEmployee.id)).toMatchObject(newEmployee);
+
+    const changed = { ...newEmployee, name: 'Alex Rivera', title: 'Engineer', notes: 'Updated role', levelId: workspace.levels[1].id, salary: 110222.22 };
+    created.employees = created.employees.map((employee) => employee.id === changed.id ? changed : employee);
+    await saveWorkspace(db, created);
+    const edited = (await loadWorkspace(db))!;
+    expect(edited.employees.find((employee) => employee.id === changed.id)).toMatchObject(changed);
+
+    edited.employees = edited.employees.filter((employee) => employee.id !== changed.id);
+    await saveWorkspace(db, edited);
+    const deleted = (await loadWorkspace(db))!;
+    expect(deleted.employees.some((employee) => employee.id === changed.id)).toBe(false);
+    expect(deleted.employees).toHaveLength(sampleWorkspace.employees.length);
+    expect(deleted.market).toEqual(workspace.market);
+    expect(deleted.assumptions).toEqual(workspace.assumptions);
+  });
+
   it('preserves multiple market datasets and loads an explicitly selected context', async () => {
     const first = structuredClone(sampleWorkspace);
     await saveWorkspace(db, first, '2026-01-01T00:00:00.000Z');

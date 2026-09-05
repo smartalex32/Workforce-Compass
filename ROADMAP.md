@@ -45,7 +45,7 @@ This roadmap translates the PRD and GUI reference in [Issue #1](https://github.c
 
 - [x] Create and manage multiple organizations, labor markets, disciplines, ladders, and datasets in the UI instead of editing one active workspace — [#3](https://github.com/smartalex32/Workforce-Compass/issues/3)
 - [x] Make all context filter controls switch persisted scopes and refresh every linked view — [#3](https://github.com/smartalex32/Workforce-Compass/issues/3), [#9](https://github.com/smartalex32/Workforce-Compass/issues/9)
-- [ ] Add searchable employee table/filter treatment from the reference GUI while keeping the compensation curve dominant — [#4](https://github.com/smartalex32/Workforce-Compass/issues/4), [#8](https://github.com/smartalex32/Workforce-Compass/issues/8)
+- [x] Add searchable employee table/filter treatment from the reference GUI while keeping the compensation curve dominant — [#4](https://github.com/smartalex32/Workforce-Compass/issues/4), [#8](https://github.com/smartalex32/Workforce-Compass/issues/8)
 - [ ] Add stacked replacement-cost-by-level summary from the reference GUI — [#7](https://github.com/smartalex32/Workforce-Compass/issues/7)
 
 ## Post-MVP

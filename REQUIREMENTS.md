@@ -50,7 +50,7 @@ Status values: **Implemented locally** means complete in the current checkout bu
 | R-EMP-05 | Plot every employee as an independent observation at level and salary. | Implemented locally | [#4](https://github.com/smartalex32/Workforce-Compass/issues/4) |
 | R-EMP-06 | Make same-level employees distinguishable without implying a different level. | Implemented locally | [#4](https://github.com/smartalex32/Workforce-Compass/issues/4) |
 | R-EMP-07 | Select an employee from any analysis view to open contextual detail. | Implemented locally | [#4](https://github.com/smartalex32/Workforce-Compass/issues/4) |
-| R-EMP-08 | Provide searchable/tabular employee management inspired by the GUI reference. | Planned | [#4](https://github.com/smartalex32/Workforce-Compass/issues/4) |
+| R-EMP-08 | Provide searchable/tabular employee management inspired by the GUI reference. | Implemented locally | [#4](https://github.com/smartalex32/Workforce-Compass/issues/4) |
 
 ## Compensation calculations and visualization
 
@@ -118,7 +118,7 @@ Status values: **Implemented locally** means complete in the current checkout bu
 | R-UX-04 | Provide keyboard-focusable chart points and accessible labels. | Implemented locally | [#8](https://github.com/smartalex32/Workforce-Compass/issues/8) |
 | R-UX-05 | Give data-management actions clear labels and feedback. | Implemented locally | [#8](https://github.com/smartalex32/Workforce-Compass/issues/8) |
 | R-UX-06 | Provide sidebar navigation and user identity treatment shown in the GUI reference. | Partial | [#8](https://github.com/smartalex32/Workforce-Compass/issues/8) |
-| R-UX-07 | Provide employee search/filter controls shown in the GUI reference. | Planned | [#8](https://github.com/smartalex32/Workforce-Compass/issues/8) |
+| R-UX-07 | Provide employee search/filter controls shown in the GUI reference. | Implemented locally | [#4](https://github.com/smartalex32/Workforce-Compass/issues/4), [#8](https://github.com/smartalex32/Workforce-Compass/issues/8) |
 | R-UX-08 | Use clear currency formatting and signed positive/negative comparisons. | Implemented locally | [#8](https://github.com/smartalex32/Workforce-Compass/issues/8) |
 | R-UX-09 | Avoid implying more precision than source data and assumptions support. | Implemented locally | [#8](https://github.com/smartalex32/Workforce-Compass/issues/8) |
 | R-DQ-01 | Display “Not available” when required market or assumption inputs are absent. | Implemented locally | [#8](https://github.com/smartalex32/Workforce-Compass/issues/8) |

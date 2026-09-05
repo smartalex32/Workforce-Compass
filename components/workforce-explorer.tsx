@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/sheet';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EmployeeDialog, WorkspaceDialog } from '@/components/management-dialogs';
+import { EmployeeDirectory } from '@/components/employee-directory';
 import type { Employee, Workspace } from '@/lib/domain';
 import type {
   WorkspaceContexts,
@@ -765,7 +766,9 @@ export function WorkforceExplorer({
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [workspaceDialogOpen, setWorkspaceDialogOpen] = useState(false);
   const [contexts, setContexts] = useState<WorkspaceContexts>(emptyContexts);
+  const [workspaceLoaded, setWorkspaceLoaded] = useState(false);
   const [saveState, setSaveState] = useState<'loading' | 'saved' | 'saving' | 'error'>('loading');
+  const editingDisabled = !workspaceLoaded || saveState === 'loading' || saveState === 'saving';
   const [visibility, setVisibility] = useState<Visibility>({
     band: true,
     market: true,
@@ -864,6 +867,7 @@ export function WorkforceExplorer({
       if (!response.ok) throw new Error('Save failed');
       const result = (await response.json()) as { workspace?: Workspace };
       setWorkspace(result.workspace ?? next);
+      setWorkspaceLoaded(true);
       setSaveState('saved');
       try {
         await refreshContexts();
@@ -888,6 +892,7 @@ export function WorkforceExplorer({
         if (!active) return;
         if (result.workspace) {
           setWorkspace(result.workspace);
+          setWorkspaceLoaded(true);
           await refreshContexts();
           if (!active) return;
           setSaveState('saved');
@@ -905,6 +910,7 @@ export function WorkforceExplorer({
   }, [initialWorkspace, persistWorkspace, refreshContexts]);
 
   const saveEmployee = useCallback(async (employee: Employee) => {
+    if (editingDisabled) return false;
     const exists = workspace.employees.some((item) => item.id === employee.id);
     return persistWorkspace({
       ...workspace,
@@ -912,7 +918,7 @@ export function WorkforceExplorer({
         ? workspace.employees.map((item) => item.id === employee.id ? employee : item)
         : [...workspace.employees, employee],
     });
-  }, [persistWorkspace, workspace]);
+  }, [editingDisabled, persistWorkspace, workspace]);
 
   async function deleteEmployee(employeeId: string) {
     const saved = await persistWorkspace({
@@ -927,11 +933,13 @@ export function WorkforceExplorer({
   }
 
   function startAddEmployee() {
+    if (editingDisabled) return;
     setEditingEmployee(null);
     setEmployeeDialogOpen(true);
   }
 
   function startEditEmployee(employee: Employee) {
+    if (editingDisabled) return;
     setDetailOpen(false);
     setEditingEmployee(employee);
     setEmployeeDialogOpen(true);
@@ -1064,10 +1072,10 @@ export function WorkforceExplorer({
           <span className={`save-status status-${saveState}`} aria-live="polite">
             {saveState === 'loading' ? 'Loading…' : saveState === 'saving' ? 'Saving…' : saveState === 'saved' ? 'Saved' : 'Save unavailable'}
           </span>
-          <Button variant="ghost" size="sm" onClick={() => setWorkspaceDialogOpen(true)}>
+          <Button variant="ghost" size="sm" disabled={editingDisabled} onClick={() => setWorkspaceDialogOpen(true)}>
             <Database /> Manage data
           </Button>
-          <Button size="sm" onClick={startAddEmployee}>
+          <Button size="sm" disabled={editingDisabled} onClick={startAddEmployee}>
             <Plus /> Add employee
           </Button>
           <button className="profile-button" aria-label="Open user menu">
@@ -1247,18 +1255,28 @@ export function WorkforceExplorer({
             </TabsTrigger>
           </TabsList>
         </Tabs>
-        <Button variant="outline" size="sm" onClick={() => setWorkspaceDialogOpen(true)}>
+        <Button variant="outline" size="sm" disabled={editingDisabled} onClick={() => setWorkspaceDialogOpen(true)}>
           <Settings2 /> Configure workspace
         </Button>
       </div>
 
+      <EmployeeDirectory
+        key={JSON.stringify([workspace.organization.id, workspace.discipline.id, workspace.ladder.id])}
+        workspace={workspace}
+        disabled={editingDisabled}
+        onSelect={selectEmployee}
+        onEdit={startEditEmployee}
+        onAdd={startAddEmployee}
+      />
+
       <EmployeeDetail
         workspace={workspace}
-        employee={selectedEmployee}
+        employee={workspace.employees.find((employee) => employee.id === selectedEmployee?.id) ?? null}
         open={detailOpen}
         onOpenChange={setDetailOpen}
         onEdit={startEditEmployee}
         onConfigure={() => {
+          if (editingDisabled) return;
           setDetailOpen(false);
           setWorkspaceDialogOpen(true);
         }}
