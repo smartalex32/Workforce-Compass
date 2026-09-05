@@ -5,6 +5,7 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   BarChart3,
+  BriefcaseBusiness,
   CircleDollarSign,
   Database,
   Info,
@@ -939,6 +940,15 @@ export function WorkforceExplorer({
     setSelectedEmployee(employee);
     setDetailOpen(true);
   };
+  const navigateTo = (sectionId: string, nextView?: ViewMode) => {
+    if (nextView) setView(nextView);
+    requestAnimationFrame(() => {
+      document.getElementById(sectionId)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    });
+  };
 
   const contextOptions = useMemo(() => {
     const organizations = includeCurrent(contexts.organizations, {
@@ -1199,7 +1209,7 @@ export function WorkforceExplorer({
 
   return (
     <main className="app-shell">
-      <header className="app-header">
+      <aside className="workspace-sidebar" aria-label="Workspace navigation">
         <div className="brand-lockup">
           <div className="brand-symbol">
             <span />
@@ -1211,6 +1221,43 @@ export function WorkforceExplorer({
             <span>Compensation. Context. Clarity.</span>
           </div>
         </div>
+        <nav className="sidebar-nav" aria-label="Analysis views">
+          <button className={view === 'curve' ? 'active' : ''} onClick={() => navigateTo('analysis', 'curve')}>
+            <BarChart3 /> Compensation curve
+          </button>
+          <button className={view === 'replacement' ? 'active' : ''} onClick={() => navigateTo('analysis', 'replacement')}>
+            <CircleDollarSign /> Replacement exposure
+          </button>
+          <button className={view === 'matrix' ? 'active' : ''} onClick={() => navigateTo('analysis', 'matrix')}>
+            <ArrowUpRight /> Market gap × cost
+          </button>
+          <button onClick={() => navigateTo('employees')}>
+            <Users /> Employees
+          </button>
+          <button disabled={editingDisabled} onClick={() => setWorkspaceDialogOpen(true)}>
+            <Database /> Data & assumptions
+          </button>
+        </nav>
+        <div className="sidebar-scope">
+          <span>Active workspace</span>
+          <strong>{workspace.discipline.name}</strong>
+          <small>{workspace.laborMarket.name}</small>
+        </div>
+        <div className="sidebar-owner" aria-label="Workspace owner access">
+          <span className="sidebar-owner-avatar">WO</span>
+          <span>
+            <strong>Workspace owner</strong>
+            <small>Private planning space</small>
+          </span>
+        </div>
+      </aside>
+      <div className="app-content">
+      <header className="app-header">
+        <div className="header-context">
+          <BriefcaseBusiness />
+          <span>{workspace.organization.name}</span>
+          <small>Workforce workspace</small>
+        </div>
         <div className="header-actions">
           <span className={`save-status status-${saveState}`} aria-live="polite">
             {saveState === 'loading' ? 'Loading…' : saveState === 'saving' ? 'Saving…' : saveState === 'saved' ? 'Saved' : 'Save unavailable'}
@@ -1221,13 +1268,10 @@ export function WorkforceExplorer({
           <Button size="sm" disabled={editingDisabled} onClick={startAddEmployee}>
             <Plus /> Add employee
           </Button>
-          <button className="profile-button" aria-label="Open user menu">
-            AJ
-          </button>
         </div>
       </header>
 
-      <section className="workspace-toolbar" aria-label="Analysis filters">
+      <section id="workspace" className="workspace-toolbar" aria-label="Analysis filters">
         <div className="context-copy">
           <p className="eyebrow">Compensation workspace</p>
           <h1>See the shape of your workforce.</h1>
@@ -1281,7 +1325,7 @@ export function WorkforceExplorer({
         </div>
       </section>
 
-      <section className="analysis-card">
+      <section id="analysis" className="analysis-card">
         <div className="analysis-heading">
           <div>
             <p className="chart-kicker">
@@ -1403,6 +1447,7 @@ export function WorkforceExplorer({
         </Button>
       </div>
 
+      <section id="employees" className="employee-directory-section" aria-label="Employees">
       <EmployeeDirectory
         key={JSON.stringify([workspace.organization.id, workspace.discipline.id, workspace.ladder.id])}
         workspace={workspace}
@@ -1411,6 +1456,7 @@ export function WorkforceExplorer({
         onEdit={startEditEmployee}
         onAdd={startAddEmployee}
       />
+      </section>
 
       <EmployeeDetail
         workspace={workspace}
@@ -1440,6 +1486,7 @@ export function WorkforceExplorer({
         workspace={workspace}
         onSave={persistWorkspace}
       />}
+      </div>
     </main>
   );
 }

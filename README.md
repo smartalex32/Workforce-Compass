@@ -20,6 +20,7 @@ Retention exposure is a planning metric, not a prediction that an employee will 
 - Select an employee for market gap, team gap, market position, replacement-cost components, and retention exposure.
 - Configure time-to-hire, ramp, vacancy, productivity-loss, recruiting, interview, relocation/signing, and other cost assumptions by level.
 - Switch among Compensation Curve, Replacement Exposure, and Market Gap × Cost views; inspect hiring, vacancy, and ramp cost composition by level without treating missing inputs as zero.
+- Use desktop sidebar navigation to move among analysis views, employee management, and data assumptions while retaining the active workspace context.
 - Switch persisted organization, market, discipline, ladder, and dataset contexts while every linked analysis view updates together.
 - Persist each scoped workspace in Cloudflare D1 without replacing unrelated contexts.
 
