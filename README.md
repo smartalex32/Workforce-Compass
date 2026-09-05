@@ -21,7 +21,7 @@ Retention exposure is a planning metric, not a prediction that an employee will 
 - Switch among Compensation Curve, Replacement Exposure, and Market Gap × Cost views.
 - Persist the active workspace in Cloudflare D1.
 
-The relational schema supports multiple contexts, but the current UI edits and displays one active organization/market/discipline/ladder/dataset workspace. Multi-context creation and switching remain tracked in the [roadmap](./ROADMAP.md).
+The relational schema and persistence API support multiple organizations, markets, disciplines, ladders, and datasets without replacing unrelated scopes. The current UI edits and displays one active workspace; multi-context creation and switching remain tracked in the [roadmap](./ROADMAP.md).
 
 ## Product documentation
 
@@ -52,8 +52,18 @@ npm run build
 
 - `lib/domain.ts` contains deterministic compensation, team median, monotone curve, replacement-cost, and retention-exposure calculations.
 - `db/schema.ts` defines the relational organization, labor market, discipline, ladder, level, dataset, employee, market compensation, and assumption entities.
-- `app/api/workspace/route.ts` is the persistence boundary for the active analysis workspace.
+- `lib/workspace-repository.ts` owns scope-preserving D1 reads, writes, context discovery, and parent/scope conflict protection.
+- `app/api/workspace/route.ts` validates requests and exposes the persistence boundary for analysis workspaces.
 - `components/workforce-explorer.tsx` owns the primary visualization and linked analysis views.
 - `components/management-dialogs.tsx` contains employee, career structure, market data, and planning assumption editors.
+
+## Workspace persistence API
+
+- `GET /api/workspace` loads the default persisted context.
+- `GET /api/workspace?organizationId=…&laborMarketId=…&disciplineId=…&ladderId=…&datasetId=…` loads an explicit, relationship-validated context and returns 404 when the selection is invalid.
+- `GET /api/workspace/contexts` returns the organization, market, discipline, ladder, and dataset catalog. An optional `organizationId` narrows the catalog.
+- `PUT /api/workspace` atomically upserts the selected hierarchy and replaces only that ladder/dataset’s observations and assumptions. Other organizations, markets, ladders, and datasets are preserved.
+
+Existing child IDs cannot be silently moved to a different parent or analysis scope; conflicting writes return HTTP 409.
 
 Employee records are not logged or sent to analytics. The Sites deployment is owner-only, so its application and data endpoints are protected by the platform access layer. Self-hosters should place the app behind their organization’s authentication boundary before entering production compensation data.

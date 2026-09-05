@@ -19,7 +19,7 @@ Status values: **Implemented locally** means complete in the current checkout bu
 | R-PER-01 | Persist all configured data in relational storage rather than browser-only storage. | Implemented locally | [#2](https://github.com/smartalex32/Workforce-Compass/issues/2) |
 | R-PER-02 | Reload the application without losing saved data. | Implemented locally | [#2](https://github.com/smartalex32/Workforce-Compass/issues/2) |
 | R-PER-03 | Treat missing market rows and assumptions as unavailable, never as implicit zero. | Implemented locally | [#2](https://github.com/smartalex32/Workforce-Compass/issues/2) |
-| R-PER-04 | Support multiple entities/datasets in the schema even when only one active workspace is displayed. | Partial | [#2](https://github.com/smartalex32/Workforce-Compass/issues/2) |
+| R-PER-04 | Support multiple entities/datasets in the schema even when only one active workspace is displayed. | Implemented locally | [#2](https://github.com/smartalex32/Workforce-Compass/issues/2) |
 
 ## Market and structure management
 
