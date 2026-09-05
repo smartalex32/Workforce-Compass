@@ -40,7 +40,9 @@ import {
   calculateReplacementCost,
   employeeMetrics,
   monotoneCubicInterpolate,
+  splitContiguousSeries,
   teamMedianForLevel,
+  validateMarketPoint,
 } from '@/lib/domain';
 
 type ViewMode = 'curve' | 'replacement' | 'matrix';
@@ -131,12 +133,23 @@ function CompensationChart({
   visibility: Visibility;
   onSelect: (employee: Employee) => void;
 }) {
+  const [hoveredEmployee, setHoveredEmployee] = useState<{
+    employee: Employee;
+    x: number;
+    y: number;
+  } | null>(null);
   const width = 1040;
   const height = 485;
   const frame = { left: 78, right: 30, top: 28, bottom: 58 };
   const levels = [...workspace.levels].sort((a, b) => a.order - b.order);
-  const allValues = workspace.market.flatMap((point) => [point.p25, point.p75]);
-  const salaries = workspace.employees.map((employee) => employee.salary);
+  const validMarket = workspace.market.filter(validateMarketPoint);
+  const validEmployees = workspace.employees.filter(
+    (employee) => Number.isFinite(employee.salary) && employee.salary > 0,
+  );
+  const allValues = validMarket.flatMap((point) => [point.p25, point.p75]);
+  const salaries = validEmployees
+    .map((employee) => employee.salary)
+    .filter((salary) => Number.isFinite(salary) && salary > 0);
   const chartValues = [...allValues, ...salaries];
   const rawMin = chartValues.length
     ? chartValues.reduce((lowest, value) => Math.min(lowest, value), Number.POSITIVE_INFINITY)
@@ -154,7 +167,7 @@ function CompensationChart({
     frame.top + ((max - value) / Math.max(1, max - min)) * innerHeight;
   const levelIndex = new Map(levels.map((level, index) => [level.id, index]));
 
-  const marketSeries = workspace.market
+  const marketSeries = validMarket
     .map((point) => ({ point, index: levelIndex.get(point.levelId) }))
     .filter(
       (
@@ -167,29 +180,38 @@ function CompensationChart({
     .sort((a, b) => a.index - b.index);
 
   const curve = (key: 'p25' | 'p50' | 'p75') =>
-    monotoneCubicInterpolate(
+    splitContiguousSeries(
       marketSeries.map(({ point, index }) => ({ x: index, y: point[key] })),
-      20,
-    ).map((point) => ({ x: xForIndex(point.x), y: yForValue(point.y) }));
+    ).map((segment) =>
+      monotoneCubicInterpolate(segment, 20).map((point) => ({
+        x: xForIndex(point.x),
+        y: yForValue(point.y),
+      })),
+    );
 
-  const lowCurve = curve('p25');
-  const midCurve = curve('p50');
-  const highCurve = curve('p75');
-  const bandPath = `${pathFrom(lowCurve)} ${highCurve
-    .slice()
-    .reverse()
-    .map((point) => `L${point.x.toFixed(1)},${point.y.toFixed(1)}`)
-    .join(' ')} Z`;
+  const lowCurves = curve('p25');
+  const midCurves = curve('p50');
+  const highCurves = curve('p75');
+  const bandPaths = lowCurves.map((lowCurve, index) => {
+    const highCurve = highCurves[index];
+    return `${pathFrom(lowCurve)} ${highCurve
+      .slice()
+      .reverse()
+      .map((point) => `L${point.x.toFixed(1)},${point.y.toFixed(1)}`)
+      .join(' ')} Z`;
+  });
   const teamPoints = levels.flatMap((level, index) => {
     const result = teamMedianForLevel(workspace.employees, level.id);
     return result.median === null || result.sampleSize < 2
       ? []
       : [{ x: index, y: result.median }];
   });
-  const teamCurve = monotoneCubicInterpolate(teamPoints, 20).map((point) => ({
-    x: xForIndex(point.x),
-    y: yForValue(point.y),
-  }));
+  const teamCurves = splitContiguousSeries(teamPoints).map((segment) =>
+    monotoneCubicInterpolate(segment, 20).map((point) => ({
+      x: xForIndex(point.x),
+      y: yForValue(point.y),
+    })),
+  );
   const ticks = Array.from(
     { length: 6 },
     (_, index) => min + ((max - min) * index) / 5,
@@ -256,24 +278,51 @@ function CompensationChart({
             </g>
           );
         })}
-        {visibility.band && <path d={bandPath} fill="url(#marketBand)" />}
+        {visibility.band && bandPaths.map((bandPath, index) => (
+          <path key={`band-${index}`} d={bandPath} fill="url(#marketBand)" />
+        ))}
         {visibility.band && (
           <>
-            <path d={pathFrom(lowCurve)} className="band-boundary" />
-            <path d={pathFrom(highCurve)} className="band-boundary" />
+            {lowCurves.map((curvePoints, index) => (
+              <path key={`low-${index}`} d={pathFrom(curvePoints)} className="band-boundary" />
+            ))}
+            {highCurves.map((curvePoints, index) => (
+              <path key={`high-${index}`} d={pathFrom(curvePoints)} className="band-boundary" />
+            ))}
           </>
         )}
         {visibility.market && (
-          <path d={pathFrom(midCurve)} className="market-curve" />
+          <>
+            {midCurves.map((curvePoints, index) => (
+              <path key={`market-${index}`} d={pathFrom(curvePoints)} className="market-curve" />
+            ))}
+            {marketSeries.map(({ point, index }) => (
+              <g key={`market-observation-${point.levelId}`} className="market-observation">
+                <title>{`${levels[index].name}: P25 ${formatMoney(point.p25, workspace.organization.currency)}, P50 ${formatMoney(point.p50, workspace.organization.currency)}, P75 ${formatMoney(point.p75, workspace.organization.currency)}`}</title>
+                <circle cx={xForIndex(index)} cy={yForValue(point.p25)} r="3" />
+                <circle cx={xForIndex(index)} cy={yForValue(point.p50)} r="4" />
+                <circle cx={xForIndex(index)} cy={yForValue(point.p75)} r="3" />
+              </g>
+            ))}
+          </>
         )}
-        {visibility.team && teamCurve.length > 1 && (
-          <path d={pathFrom(teamCurve)} className="team-curve" />
+        {visibility.team && (
+          <>
+            {teamCurves.map((curvePoints, index) => curvePoints.length > 1 && (
+              <path key={`team-${index}`} d={pathFrom(curvePoints)} className="team-curve" />
+            ))}
+            {teamPoints.map((point) => (
+              <circle key={`team-observation-${point.x}`} className="team-observation" cx={xForIndex(point.x)} cy={yForValue(point.y)} r="3.5">
+                <title>{`${levels[point.x].name} team median: ${formatMoney(point.y, workspace.organization.currency)}`}</title>
+              </circle>
+            ))}
+          </>
         )}
         {visibility.employees &&
-          workspace.employees.map((employee, employeeIndex) => {
+          validEmployees.map((employee, employeeIndex) => {
             const index = levelIndex.get(employee.levelId);
             if (index === undefined) return null;
-            const sameLevel = workspace.employees.filter(
+            const sameLevel = validEmployees.filter(
               (item) => item.levelId === employee.levelId,
             );
             const localIndex = sameLevel.findIndex(
@@ -282,14 +331,30 @@ function CompensationChart({
             const offset = (localIndex - (sameLevel.length - 1) / 2) * 12;
             const x = xForIndex(index) + offset;
             const y = yForValue(employee.salary);
+            const metrics = employeeMetrics(workspace, employee);
+            const marketDetail = metrics.marketGap
+              ? `Market gap ${signedMoney(metrics.marketGap.amount, workspace.organization.currency)} (${signedPercent(metrics.marketGap.percent)})`
+              : 'Market comparison unavailable';
+            const teamDetail = metrics.teamGap
+              ? `Team gap ${signedMoney(metrics.teamGap.amount, workspace.organization.currency)} (${signedPercent(metrics.teamGap.percent)})`
+              : metrics.teamSampleSize < 2
+                ? 'Team comparison needs at least two observations'
+                : 'Team comparison unavailable';
+            const replacementDetail = metrics.replacement
+              ? `Estimated replacement cost ${formatMoney(metrics.replacement.total, workspace.organization.currency)}`
+              : 'Replacement estimate unavailable';
             return (
               <g
                 key={employee.id}
                 className="employee-point"
                 role="button"
                 tabIndex={0}
-                aria-label={`${employee.name}, ${levels[index].name}, ${formatMoney(employee.salary, workspace.organization.currency)}`}
+                aria-label={`${employee.name}, ${levels[index].name}, salary ${formatMoney(employee.salary, workspace.organization.currency)}. ${marketDetail}. ${teamDetail}. ${replacementDetail}.`}
                 onClick={() => onSelect(employee)}
+                onPointerEnter={() => setHoveredEmployee({ employee, x, y })}
+                onPointerLeave={() => setHoveredEmployee(null)}
+                onFocus={() => setHoveredEmployee({ employee, x, y })}
+                onBlur={() => setHoveredEmployee(null)}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' || event.key === ' ')
                     onSelect(employee);
@@ -306,6 +371,28 @@ function CompensationChart({
               </g>
             );
           })}
+        {hoveredEmployee && (() => {
+          const metrics = employeeMetrics(workspace, hoveredEmployee.employee);
+          const level = levels.find((item) => item.id === hoveredEmployee.employee.levelId);
+          const tooltipWidth = 282;
+          const tooltipHeight = 122;
+          const x = Math.min(Math.max(frame.left + 8, hoveredEmployee.x + 14), width - frame.right - tooltipWidth);
+          const y = hoveredEmployee.y < frame.top + tooltipHeight + 20
+            ? hoveredEmployee.y + 15
+            : hoveredEmployee.y - tooltipHeight - 15;
+          return (
+            <g id="employee-chart-tooltip" className="employee-chart-tooltip" role="tooltip" pointerEvents="none">
+              <rect x={x} y={y} width={tooltipWidth} height={tooltipHeight} rx="8" />
+              <text x={x + 12} y={y + 22}>
+                <tspan className="employee-tooltip-name">{hoveredEmployee.employee.name}</tspan>
+                <tspan x={x + 12} dy="17">{`${level?.name ?? 'Level unavailable'} · ${formatMoney(hoveredEmployee.employee.salary, workspace.organization.currency)}`}</tspan>
+                <tspan x={x + 12} dy="17">{metrics.marketGap ? `Market P50 ${formatMoney(metrics.market?.p50 ?? 0, workspace.organization.currency)} · ${signedMoney(metrics.marketGap.amount, workspace.organization.currency)}` : 'Market: not available'}</tspan>
+                <tspan x={x + 12} dy="17">{metrics.teamGap ? `Team median ${formatMoney(metrics.teamMedian ?? 0, workspace.organization.currency)} · ${signedMoney(metrics.teamGap.amount, workspace.organization.currency)}` : metrics.teamSampleSize < 2 ? 'Team: insufficient observations' : 'Team: not available'}</tspan>
+                <tspan x={x + 12} dy="17">{metrics.replacement ? `Replacement ${formatMoney(metrics.replacement.total, workspace.organization.currency)}` : 'Replacement: not available'}</tspan>
+              </text>
+            </g>
+          );
+        })()}
       </svg>
     </div>
   );
@@ -608,7 +695,7 @@ function EmployeeDetail({
               }
             />
             <MetricRow
-              label="Market difference"
+              label="Market gap"
               value={
                 metrics.marketGap
                   ? signedMoney(metrics.marketGap.amount, workspace.organization.currency)
@@ -625,7 +712,7 @@ function EmployeeDetail({
               }
             />
             <MetricRow
-              label="Market difference"
+              label="Market gap %"
               value={
                 metrics.marketGap
                   ? signedPercent(metrics.marketGap.percent)
@@ -643,7 +730,7 @@ function EmployeeDetail({
               }
             />
             <MetricRow
-              label="Team difference"
+              label="Team gap"
               value={
                 metrics.teamGap
                   ? signedMoney(metrics.teamGap.amount, workspace.organization.currency)
@@ -652,7 +739,7 @@ function EmployeeDetail({
               tone={teamTone}
             />
             <MetricRow
-              label="Team difference"
+              label="Team gap %"
               value={
                 metrics.teamGap
                   ? signedPercent(metrics.teamGap.percent)
