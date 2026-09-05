@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Test, typecheck, lint, and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CI: true
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22.13.0
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Run unit and repository tests
+        run: npm test -- --run
+
+      - name: Check TypeScript
+        run: npm run typecheck
+
+      - name: Lint source
+        run: npm run lint
+
+      - name: Build production application
+        run: npm run build

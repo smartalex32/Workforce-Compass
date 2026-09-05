@@ -12,6 +12,7 @@ This roadmap translates the PRD and GUI reference in [Issue #1](https://github.c
   - Organization, labor market, discipline, ladder, and arbitrary ordered levels
   - Named datasets, market rows, employees, and per-level assumptions
   - Persist/reload flow with explicit unavailable values
+  - Scope-preserving multi-context saves, explicit context selection, and a context catalog
 - [x] Career structure and active market-data editor — [#3](https://github.com/smartalex32/Workforce-Compass/issues/3)
   - Level add/remove/reorder
   - P25/P50/P75 entry and validation
@@ -42,7 +43,7 @@ This roadmap translates the PRD and GUI reference in [Issue #1](https://github.c
 
 ## Phase 4 — Multi-context MVP completion
 
-- [ ] Create and manage multiple labor markets, disciplines, ladders, and datasets instead of editing one active workspace — [#2](https://github.com/smartalex32/Workforce-Compass/issues/2), [#3](https://github.com/smartalex32/Workforce-Compass/issues/3)
+- [ ] Create and manage multiple labor markets, disciplines, ladders, and datasets in the UI instead of editing one active workspace — [#3](https://github.com/smartalex32/Workforce-Compass/issues/3)
 - [ ] Make all four filter controls switch persisted scopes and refresh every linked view — [#3](https://github.com/smartalex32/Workforce-Compass/issues/3), [#9](https://github.com/smartalex32/Workforce-Compass/issues/9)
 - [ ] Add searchable employee table/filter treatment from the reference GUI while keeping the compensation curve dominant — [#4](https://github.com/smartalex32/Workforce-Compass/issues/4), [#8](https://github.com/smartalex32/Workforce-Compass/issues/8)
 - [ ] Add stacked replacement-cost-by-level summary from the reference GUI — [#7](https://github.com/smartalex32/Workforce-Compass/issues/7)
