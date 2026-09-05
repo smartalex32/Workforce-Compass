@@ -39,7 +39,7 @@ This roadmap translates the PRD and GUI reference in [Issue #1](https://github.c
 
 - [x] Owner-only hosted access boundary, responsive behavior, semantic unavailable states, and accessible interactions — [#8](https://github.com/smartalex32/Workforce-Compass/issues/8)
 - [x] Calculation unit tests, type check, lint, production build, schema migration, and self-hosting documentation — [#9](https://github.com/smartalex32/Workforce-Compass/issues/9)
-- [ ] Add API route/integration tests for persistence transactionality and malformed payloads — [#9](https://github.com/smartalex32/Workforce-Compass/issues/9)
+- [x] Add API route/integration tests for persistence transactionality and malformed payloads — [#9](https://github.com/smartalex32/Workforce-Compass/issues/9)
 
 ## Phase 4 — Multi-context MVP completion
 
