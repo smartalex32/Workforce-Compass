@@ -5,7 +5,7 @@ A self-hostable workforce planning application for comparing employee base salar
 The product is built around three linked views:
 
 - Compensation curve — P25–P75 market band, market median, team-level median curve, and employee observations.
-- Replacement exposure — the modeled hiring, vacancy, and ramp cost for each employee.
+- Replacement exposure — modeled hiring, vacancy, and ramp cost by employee, with a stacked summary across career levels.
 - Market gap × cost — compensation gap and replacement exposure in one planning view.
 
 Retention exposure is a planning metric, not a prediction that an employee will leave.
@@ -19,7 +19,7 @@ Retention exposure is a planning metric, not a prediction that an employee will 
 - Inspect raw market and team observations alongside their monotone curves; unavailable career levels break the curve rather than implying a value. Hover or focus an employee point for market, team, and replacement context.
 - Select an employee for market gap, team gap, market position, replacement-cost components, and retention exposure.
 - Configure time-to-hire, ramp, vacancy, productivity-loss, recruiting, interview, relocation/signing, and other cost assumptions by level.
-- Switch among Compensation Curve, Replacement Exposure, and Market Gap × Cost views.
+- Switch among Compensation Curve, Replacement Exposure, and Market Gap × Cost views; inspect hiring, vacancy, and ramp cost composition by level without treating missing inputs as zero.
 - Switch persisted organization, market, discipline, ladder, and dataset contexts while every linked analysis view updates together.
 - Persist each scoped workspace in Cloudflare D1 without replacing unrelated contexts.
 

@@ -8,6 +8,7 @@ import {
   median,
   monotoneCubicInterpolate,
   splitContiguousSeries,
+  summarizeReplacementCostsByLevel,
   teamMedianForLevel,
   validateMarketPoint,
   type Employee,
@@ -131,6 +132,31 @@ describe('replacement planning calculations', () => {
       replacement.total,
     );
     expect(calculateRetentionExposure(180000, null, replacement)).toBeNull();
+  });
+
+  it('summarizes only modeled employee costs by ordered level', () => {
+    const levels = [
+      { id: 'l2', name: 'L2', order: 2 },
+      { id: 'l1', name: 'L1', order: 1 },
+      { id: 'l3', name: 'L3', order: 3 },
+    ];
+    const l1Assumption = { ...assumption, levelId: 'l1' };
+    const l1Cost = calculateReplacementCost(100000, l1Assumption)!;
+    const summary = summarizeReplacementCostsByLevel(
+      levels,
+      [
+        { id: 'e1', name: 'One', levelId: 'l1', salary: 100000 },
+        { id: 'e2', name: 'Two', levelId: 'l1', salary: -1 },
+        { id: 'e3', name: 'Three', levelId: 'l2', salary: 120000 },
+      ],
+      [l1Assumption],
+    );
+
+    expect(summary).toEqual([
+      { levelId: 'l1', employeeCount: 2, unavailableEmployeeCount: 1, ...l1Cost },
+      { levelId: 'l2', employeeCount: 1, unavailableEmployeeCount: 1, hiringCost: 0, vacancyCost: 0, rampCost: 0, total: 0 },
+      { levelId: 'l3', employeeCount: 0, unavailableEmployeeCount: 0, hiringCost: 0, vacancyCost: 0, rampCost: 0, total: 0 },
+    ]);
   });
 });
 

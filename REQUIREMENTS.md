@@ -106,7 +106,7 @@ Status values: **Implemented locally** means complete in the current checkout bu
 | R-VIEW-04 | Plot each calculable employee as a selectable point. | Implemented locally | [#7](https://github.com/smartalex32/Workforce-Compass/issues/7) |
 | R-VIEW-05 | Use descriptive quadrant guidance, not definitive employee classifications. | Implemented locally | [#7](https://github.com/smartalex32/Workforce-Compass/issues/7) |
 | R-VIEW-06 | Preserve the current filters and detail interaction across views. | Implemented locally | [#7](https://github.com/smartalex32/Workforce-Compass/issues/7) |
-| R-VIEW-07 | Provide stacked level-cost and matrix summaries like the reference GUI without crowding the primary view. | Partial | [#7](https://github.com/smartalex32/Workforce-Compass/issues/7) |
+| R-VIEW-07 | Provide stacked level-cost and matrix summaries like the reference GUI without crowding the primary view. | Implemented locally | [#7](https://github.com/smartalex32/Workforce-Compass/issues/7) |
 
 ## UX, data quality, and privacy
 

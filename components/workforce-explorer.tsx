@@ -41,6 +41,7 @@ import {
   employeeMetrics,
   monotoneCubicInterpolate,
   splitContiguousSeries,
+  summarizeReplacementCostsByLevel,
   teamMedianForLevel,
   validateMarketPoint,
 } from '@/lib/domain';
@@ -405,6 +406,13 @@ function ReplacementChart({
   workspace: Workspace;
   onSelect: (employee: Employee) => void;
 }) {
+  const levelSummaries = summarizeReplacementCostsByLevel(
+    workspace.levels,
+    workspace.employees,
+    workspace.assumptions,
+  );
+  const levelsById = new Map(workspace.levels.map((level) => [level.id, level]));
+  const maxLevelCost = Math.max(...levelSummaries.map((summary) => summary.total), 1);
   const items = workspace.employees.map((employee) => ({
     employee,
     cost:
@@ -417,20 +425,67 @@ function ReplacementChart({
   }));
   const max = Math.max(...items.map((item) => item.cost ?? 0), 1);
   return (
-    <div
-      className="exposure-list"
-      role="img"
-      aria-label="Estimated replacement cost by employee and level"
-    >
-      <div className="exposure-scale">
-        <span>$0</span>
-        <span>{formatMoney(max / 2, workspace.organization.currency, true)}</span>
-        <span>{formatMoney(max, workspace.organization.currency, true)}</span>
-      </div>
-      <div className="exposure-rows">
-        {items
-          .sort((a, b) => (b.cost ?? 0) - (a.cost ?? 0))
-          .map(({ employee, cost }) => {
+    <div className="replacement-view">
+      <section className="level-cost-summary" aria-labelledby="level-cost-summary-title">
+        <div className="level-cost-summary-header">
+          <div>
+            <p className="detail-kicker">Planning assumptions</p>
+            <h3 id="level-cost-summary-title">Replacement cost by level</h3>
+          </div>
+          <div className="cost-legend" aria-label="Replacement cost component legend">
+            <span><i className="cost-hiring" />Hiring</span>
+            <span><i className="cost-vacancy" />Vacancy</span>
+            <span><i className="cost-ramp" />Ramp</span>
+          </div>
+        </div>
+        <p className="level-cost-note">Totals aggregate modeled employee estimates. Missing inputs remain unavailable.</p>
+        <div className="level-cost-rows">
+          {levelSummaries.map((summary) => {
+            const level = levelsById.get(summary.levelId);
+            const hasModeledCost = summary.employeeCount > summary.unavailableEmployeeCount;
+            return (
+              <div className="level-cost-row" key={summary.levelId}>
+                <div className="level-cost-label">
+                  <strong>{level?.name ?? 'Level unavailable'}</strong>
+                  <span>{summary.employeeCount === 1 ? '1 employee' : `${summary.employeeCount} employees`}</span>
+                </div>
+                <div className="level-cost-track" aria-label={`${level?.name ?? 'Level'} modeled replacement cost composition`}>
+                  {hasModeledCost ? (
+                    <>
+                      <span className="cost-hiring" style={{ width: `${(summary.hiringCost / maxLevelCost) * 100}%` }} />
+                      <span className="cost-vacancy" style={{ width: `${(summary.vacancyCost / maxLevelCost) * 100}%` }} />
+                      <span className="cost-ramp" style={{ width: `${(summary.rampCost / maxLevelCost) * 100}%` }} />
+                    </>
+                  ) : (
+                    <span className="level-cost-empty">{summary.employeeCount ? 'Assumptions needed' : 'No employees'}</span>
+                  )}
+                </div>
+                <div className="level-cost-total">
+                  <strong>{hasModeledCost ? formatMoney(summary.total, workspace.organization.currency, true) : 'N/A'}</strong>
+                  {summary.unavailableEmployeeCount > 0 && <span>{summary.unavailableEmployeeCount} unavailable</span>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+      <section className="exposure-list" aria-labelledby="employee-exposure-title">
+        <div className="exposure-list-header">
+          <div>
+            <p className="detail-kicker">Observed employees</p>
+            <h3 id="employee-exposure-title">Employee replacement estimates</h3>
+          </div>
+          <span>Each row opens the employee detail.</span>
+        </div>
+        <div className="exposure-scale" aria-hidden="true">
+          <span>$0</span>
+          <span>{formatMoney(max / 2, workspace.organization.currency, true)}</span>
+          <span>{formatMoney(max, workspace.organization.currency, true)}</span>
+        </div>
+        <div className="exposure-rows">
+          {items
+            .sort((a, b) => (b.cost ?? 0) - (a.cost ?? 0))
+            .map(({ employee, cost }) => {
             const level = workspace.levels.find(
               (item) => item.id === employee.levelId,
             );
@@ -461,8 +516,9 @@ function ReplacementChart({
                 </strong>
               </button>
             );
-          })}
-      </div>
+            })}
+        </div>
+      </section>
     </div>
   );
 }

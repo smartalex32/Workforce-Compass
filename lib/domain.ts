@@ -63,6 +63,12 @@ export type ReplacementCost = {
   total: number;
 };
 
+export type LevelReplacementSummary = ReplacementCost & {
+  levelId: string;
+  employeeCount: number;
+  unavailableEmployeeCount: number;
+};
+
 export function median(values: number[]): number | null {
   const finiteValues = values.filter(Number.isFinite);
   if (!finiteValues.length) return null;
@@ -145,6 +151,39 @@ export function calculateRetentionExposure(
 ): number | null {
   if (!Number.isFinite(salary) || salary <= 0 || marketMedian === null || replacementCost === null) return null;
   return Math.max(0, marketMedian - salary) + replacementCost.total;
+}
+
+/**
+ * Aggregates the modeled replacement-cost components for each configured
+ * level. Employees without a complete, valid estimate remain counted as
+ * unavailable rather than contributing an implied zero cost.
+ */
+export function summarizeReplacementCostsByLevel(
+  levels: Level[],
+  employees: Employee[],
+  assumptions: HiringAssumption[],
+): LevelReplacementSummary[] {
+  const assumptionsByLevel = new Map(
+    assumptions.map((assumption) => [assumption.levelId, assumption]),
+  );
+
+  return [...levels]
+    .sort((a, b) => a.order - b.order)
+    .map((level) => {
+      const observations = employees.filter((employee) => employee.levelId === level.id);
+      const costs = observations
+        .map((employee) => calculateReplacementCost(employee.salary, assumptionsByLevel.get(level.id)))
+        .filter((cost): cost is ReplacementCost => cost !== null);
+      return {
+        levelId: level.id,
+        employeeCount: observations.length,
+        unavailableEmployeeCount: observations.length - costs.length,
+        hiringCost: costs.reduce((total, cost) => total + cost.hiringCost, 0),
+        vacancyCost: costs.reduce((total, cost) => total + cost.vacancyCost, 0),
+        rampCost: costs.reduce((total, cost) => total + cost.rampCost, 0),
+        total: costs.reduce((total, cost) => total + cost.total, 0),
+      };
+    });
 }
 
 export function validateMarketPoint(point: MarketPoint): boolean {
