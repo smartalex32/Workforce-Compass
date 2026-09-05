@@ -79,20 +79,43 @@ export function EmployeeDialog({
 
   async function submit(event: { preventDefault(): void }) {
     event.preventDefault();
-    if (!draft.name.trim() || draft.salary <= 0 || !draft.levelId) {
+    if (submitting) return;
+    if (!draft.name.trim() || !Number.isFinite(draft.salary) || draft.salary <= 0 || !workspace.levels.some((level) => level.id === draft.levelId)) {
       setError('Name, level, and a positive base salary are required.');
       return;
     }
     setSubmitting(true);
-    const saved = await onSave({ ...draft, name: draft.name.trim() });
-    setSubmitting(false);
-    if (saved) onOpenChange(false);
-    else setError('The employee could not be saved. Please try again.');
+    setError(null);
+    try {
+      const saved = await onSave({ ...draft, name: draft.name.trim() });
+      if (saved) onOpenChange(false);
+      else setError('The employee could not be saved. Please try again.');
+    } catch {
+      setError('The employee could not be saved. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function deleteEmployee() {
+    if (!employee || !onDelete || submitting) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      if (await onDelete(employee.id)) {
+        setDeleteOpen(false);
+        onOpenChange(false);
+      } else setError('The employee could not be deleted. Please try again.');
+    } catch {
+      setError('The employee could not be deleted. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
+      <Dialog open={open} onOpenChange={(next) => { if (!submitting) onOpenChange(next); }}>
         <DialogContent className="management-modal employee-modal">
           <form onSubmit={submit}>
             <DialogHeader>
@@ -101,7 +124,7 @@ export function EmployeeDialog({
                 Employee observations are shown as points and remain separate from the estimated team curve.
               </DialogDescription>
             </DialogHeader>
-            <div className="form-grid">
+            <fieldset className="form-grid" disabled={submitting}>
               <label className="field-wide">
                 <span>Name</span>
                 <Input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} placeholder="Employee name" />
@@ -123,42 +146,36 @@ export function EmployeeDialog({
               </label>
               <label>
                 <span>Annual base salary</span>
-                <Input type="number" min="1" step="1000" value={draft.salary || ''} onChange={(event) => setDraft({ ...draft, salary: numericValue(event.target.value) })} placeholder="165000" />
+                <Input type="number" min="0.01" step="0.01" value={draft.salary || ''} onChange={(event) => setDraft({ ...draft, salary: numericValue(event.target.value) })} placeholder="165000" />
               </label>
               <label className="field-wide">
                 <span>Notes <small>optional</small></span>
                 <Textarea value={draft.notes ?? ''} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} placeholder="Context that should accompany this observation" />
               </label>
-            </div>
-            {error && <p className="form-error">{error}</p>}
+            </fieldset>
+            {error && !deleteOpen && <p className="form-error" role="alert">{error}</p>}
             <DialogFooter className="management-footer">
               {employee && onDelete ? (
-                <Button type="button" variant="ghost" className="delete-button" onClick={() => setDeleteOpen(true)}><Trash2 /> Delete</Button>
+                <Button type="button" variant="ghost" className="delete-button" disabled={submitting} onClick={() => { setError(null); setDeleteOpen(true); }}><Trash2 /> Delete</Button>
               ) : <span />}
               <div>
-                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+                <Button type="button" variant="outline" disabled={submitting} onClick={() => onOpenChange(false)}>Cancel</Button>
                 <Button type="submit" disabled={submitting}><Save /> {submitting ? 'Saving…' : 'Save employee'}</Button>
               </div>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
-      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+      <AlertDialog open={deleteOpen} onOpenChange={(next) => { if (!submitting) setDeleteOpen(next); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete {employee?.name}?</AlertDialogTitle>
             <AlertDialogDescription>This removes the employee observation from every analysis view. This action cannot be undone.</AlertDialogDescription>
           </AlertDialogHeader>
+          {error && <p className="form-error" role="alert">{error}</p>}
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={async () => {
-              if (!employee || !onDelete) return;
-              const deleted = await onDelete(employee.id);
-              if (deleted) {
-                setDeleteOpen(false);
-                onOpenChange(false);
-              }
-            }}>Delete employee</AlertDialogAction>
+            <AlertDialogCancel disabled={submitting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" disabled={submitting} onClick={deleteEmployee}>{submitting ? 'Deleting…' : 'Delete employee'}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
