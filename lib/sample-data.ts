@@ -22,6 +22,7 @@ export const sampleWorkspace: Workspace = {
     name: '2026 Market Survey',
     source: 'Compensation planning estimate',
     effectiveDate: '2026-01-01',
+    active: true,
   },
   levels: [
     { id: 'l1', name: 'L1', order: 1, description: 'Developing' },
@@ -52,7 +53,11 @@ export const sampleWorkspace: Workspace = {
     { id: 'e10', name: 'Avery Brooks', title: 'Staff Software Engineer', levelId: 'l5', salary: 194000 },
     { id: 'e11', name: 'Rina Patel', title: 'Staff Software Engineer', levelId: 'l5', salary: 211000 },
     { id: 'e12', name: 'Marcus Reed', title: 'Principal Engineer', levelId: 'l6', salary: 228000 },
-  ],
+  ].map((employee) => ({
+    ...employee,
+    disciplineId: 'discipline-swe',
+    careerLadderId: 'ladder-ic',
+  })),
   assumptions: [
     ['l1', 35, 60, 0.5, 0.4, 5500, 1800, 0, 700],
     ['l2', 45, 75, 0.7, 0.4, 6500, 2200, 0, 800],

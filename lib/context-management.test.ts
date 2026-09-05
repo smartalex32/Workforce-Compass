@@ -7,11 +7,11 @@ const source: Workspace = {
   laborMarket: { id: 'market-1', name: 'Remote' },
   discipline: { id: 'discipline-1', name: 'Engineering' },
   ladder: { id: 'ladder-1', name: 'IC' },
-  dataset: { id: 'dataset-1', name: '2026 survey' },
+  dataset: { id: 'dataset-1', name: '2026 survey', active: true },
   levels: [{ id: 'level-1', name: 'L1', order: 1 }],
   market: [{ levelId: 'level-1', p25: 80_000, p50: 90_000, p75: 100_000 }],
   employees: [
-    { id: 'employee-1', name: 'A', levelId: 'level-1', salary: 92_000 },
+    { id: 'employee-1', name: 'A', disciplineId: 'discipline-1', careerLadderId: 'ladder-1', levelId: 'level-1', salary: 92_000 },
   ],
   assumptions: [
     {

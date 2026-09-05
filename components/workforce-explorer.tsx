@@ -60,6 +60,7 @@ const emptyContexts: WorkspaceContexts = {
   laborMarkets: [],
   disciplines: [],
   ladders: [],
+  levels: [],
   datasets: [],
 };
 
@@ -977,7 +978,7 @@ export function WorkforceExplorer({
       contexts.datasets.filter(
         (dataset) => dataset.laborMarketId === workspace.laborMarket.id,
       ),
-      { ...workspace.dataset, laborMarketId: workspace.laborMarket.id, active: true },
+      { ...workspace.dataset, laborMarketId: workspace.laborMarket.id },
     );
     return { organizations, laborMarkets, disciplines, ladders, datasets };
   }, [contexts, workspace]);
@@ -1065,6 +1066,39 @@ export function WorkforceExplorer({
   const saveEmployee = useCallback(async (employee: Employee) => {
     if (editingDisabled) return false;
     const exists = workspace.employees.some((item) => item.id === employee.id);
+    const changedScope =
+      exists &&
+      (employee.disciplineId !== workspace.discipline.id ||
+        employee.careerLadderId !== workspace.ladder.id);
+
+    if (changedScope) {
+      setSaveState('saving');
+      try {
+        const response = await fetch('/api/employees/reassign', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            organizationId: workspace.organization.id,
+            sourceDisciplineId: workspace.discipline.id,
+            sourceCareerLadderId: workspace.ladder.id,
+            employee,
+          }),
+        });
+        if (!response.ok) throw new Error('Employee reassignment failed');
+        setWorkspace((current) => ({
+          ...current,
+          employees: current.employees.filter((item) => item.id !== employee.id),
+        }));
+        setSelectedEmployee(null);
+        setDetailOpen(false);
+        setSaveState('saved');
+        return true;
+      } catch {
+        setSaveState('error');
+        return false;
+      }
+    }
+
     return persistWorkspace({
       ...workspace,
       employees: exists
@@ -1184,6 +1218,8 @@ export function WorkforceExplorer({
               name: candidate.name.trim(),
               title:
                 typeof candidate.title === 'string' ? candidate.title : undefined,
+              disciplineId: workspace.discipline.id,
+              careerLadderId: workspace.ladder.id,
               levelId: level.id,
               salary: candidate.salary,
               notes:
@@ -1318,7 +1354,7 @@ export function WorkforceExplorer({
             <Select value={workspace.dataset.id} disabled={saveState === 'loading' || saveState === 'saving'} onValueChange={(datasetId) => void loadSelection({ organizationId: workspace.organization.id, laborMarketId: workspace.laborMarket.id, disciplineId: workspace.discipline.id, ladderId: workspace.ladder.id, datasetId: String(datasetId) })}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                {contextOptions.datasets.map((dataset) => <SelectItem key={dataset.id} value={dataset.id}>{dataset.name}</SelectItem>)}
+                {contextOptions.datasets.map((dataset) => <SelectItem key={dataset.id} value={dataset.id}>{dataset.name}{dataset.active ? '' : ' · Inactive'}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -1475,6 +1511,7 @@ export function WorkforceExplorer({
         open={employeeDialogOpen}
         onOpenChange={setEmployeeDialogOpen}
         workspace={workspace}
+        contexts={contexts}
         employee={editingEmployee}
         onSave={saveEmployee}
         onDelete={editingEmployee ? deleteEmployee : undefined}

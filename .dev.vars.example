@@ -1,0 +1,8 @@
+# Local development only. Copy this file to `.dev.vars`.
+# Never enable this setting in a production deployment.
+WORKFORCE_COMPASS_ALLOW_INSECURE_LOCAL=true
+
+# Production self-hosting alternatives (leave disabled locally):
+# WORKFORCE_COMPASS_TRUST_SITES_IDENTITY=true
+# WORKFORCE_COMPASS_TRUSTED_USER_HEADER=x-authenticated-user
+# WORKFORCE_COMPASS_AUTH_TOKEN=replace-with-a-secret

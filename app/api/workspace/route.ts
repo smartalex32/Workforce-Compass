@@ -1,6 +1,7 @@
 import { env } from 'cloudflare:workers';
 import type { Workspace } from '@/lib/domain';
 import { validateMarketPoint } from '@/lib/domain';
+import { authorizeApiRequest } from '@/lib/api-auth';
 import {
   loadWorkspace,
   saveWorkspace,
@@ -49,6 +50,7 @@ function hasWorkspaceShape(value: unknown): value is Workspace {
       namedEntity(dataset) &&
       isOptionalString(dataset.source) &&
       isOptionalString(dataset.effectiveDate) &&
+      typeof dataset.active === 'boolean' &&
       Array.isArray(levels) &&
       levels.every(
         (level) =>
@@ -77,6 +79,8 @@ function hasWorkspaceShape(value: unknown): value is Workspace {
           isRecord(employee) &&
           typeof employee.id === 'string' &&
           typeof employee.name === 'string' &&
+          typeof employee.disciplineId === 'string' &&
+          typeof employee.careerLadderId === 'string' &&
           typeof employee.levelId === 'string' &&
           typeof employee.salary === 'number' &&
           Number.isFinite(employee.salary) &&
@@ -101,6 +105,8 @@ function hasWorkspaceShape(value: unknown): value is Workspace {
 }
 
 export async function GET(request: Request) {
+  const unauthorized = authorizeApiRequest(request, env);
+  if (unauthorized) return unauthorized;
   const url = new URL(request.url);
   const selection: WorkspaceSelection = {};
   const parameterMap: Array<[keyof WorkspaceSelection, string]> = [
@@ -126,6 +132,8 @@ export async function GET(request: Request) {
 }
 
 export async function PUT(request: Request) {
+  const unauthorized = authorizeApiRequest(request, env);
+  if (unauthorized) return unauthorized;
   let input: { workspace?: Workspace };
   try {
     input = (await request.json()) as { workspace?: Workspace };
@@ -169,7 +177,7 @@ export async function PUT(request: Request) {
   ) {
     return badRequest('Each market row must satisfy P25 ≤ P50 ≤ P75.');
   }
-  if (workspace.employees.some((employee) => !employee.id.trim() || !employee.name.trim() || !Number.isFinite(employee.salary) || employee.salary <= 0 || !workspace.levels.some((level) => level.id === employee.levelId))) {
+  if (workspace.employees.some((employee) => !employee.id.trim() || !employee.name.trim() || employee.disciplineId !== workspace.discipline.id || employee.careerLadderId !== workspace.ladder.id || !Number.isFinite(employee.salary) || employee.salary <= 0 || !workspace.levels.some((level) => level.id === employee.levelId))) {
     return badRequest('Each employee needs a name, positive salary, and valid level.');
   }
   if (new Set(workspace.employees.map((employee) => employee.id)).size !== workspace.employees.length) {

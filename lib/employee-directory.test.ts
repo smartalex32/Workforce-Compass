@@ -11,7 +11,7 @@ const employees: Employee[] = [
   { id: 'b', name: 'Zoe Rivera', title: 'Software Engineer', levelId: 'sr', salary: 123456.78 },
   { id: 'a', name: 'Alex Chen', levelId: 'jr', salary: 90000, notes: 'Private context' },
   { id: 'c', name: 'Alex Chen', title: 'Systems Engineer', levelId: 'sr', salary: 150000 },
-];
+].map((employee) => ({ ...employee, disciplineId: 'discipline', careerLadderId: 'ladder' }));
 
 describe('employee directory', () => {
   it('combines case-insensitive search terms across name, title, and arbitrary levels', () => {

@@ -37,6 +37,7 @@ import {
   createWorkspaceContext,
   type ContextCreationKind,
 } from '@/lib/context-management';
+import type { WorkspaceContexts } from '@/lib/workspace-repository';
 
 function numericValue(value: string): number {
   const parsed = Number(value);
@@ -53,6 +54,7 @@ export function EmployeeDialog({
   open,
   onOpenChange,
   workspace,
+  contexts,
   employee,
   onSave,
   onDelete,
@@ -60,6 +62,7 @@ export function EmployeeDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   workspace: Workspace;
+  contexts: WorkspaceContexts;
   employee?: Employee | null;
   onSave: (employee: Employee) => Promise<boolean>;
   onDelete?: (employeeId: string) => Promise<boolean>;
@@ -68,6 +71,8 @@ export function EmployeeDialog({
     id: crypto.randomUUID(),
     name: '',
     title: '',
+    disciplineId: workspace.discipline.id,
+    careerLadderId: workspace.ladder.id,
     levelId: workspace.levels[0]?.id ?? '',
     salary: 0,
     notes: '',
@@ -76,12 +81,31 @@ export function EmployeeDialog({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const disciplines = contexts.disciplines.filter(
+    (discipline) => discipline.organizationId === workspace.organization.id,
+  );
+  const ladders = contexts.ladders.filter(
+    (ladder) => ladder.disciplineId === draft.disciplineId,
+  );
+  const levels = [
+    ...contexts.levels.filter(
+      (level) => level.careerLadderId === draft.careerLadderId,
+    ),
+    ...(draft.careerLadderId === workspace.ladder.id
+      ? workspace.levels.map((level) => ({
+          ...level,
+          careerLadderId: workspace.ladder.id,
+        }))
+      : []),
+  ].filter(
+    (level, index, items) => items.findIndex((item) => item.id === level.id) === index,
+  );
 
   async function submit(event: { preventDefault(): void }) {
     event.preventDefault();
     if (submitting) return;
-    if (!draft.name.trim() || !Number.isFinite(draft.salary) || draft.salary <= 0 || !workspace.levels.some((level) => level.id === draft.levelId)) {
-      setError('Name, level, and a positive base salary are required.');
+    if (!draft.name.trim() || !Number.isFinite(draft.salary) || draft.salary <= 0 || !levels.some((level) => level.id === draft.levelId)) {
+      setError('Name, discipline, career ladder, level, and a positive base salary are required.');
       return;
     }
     setSubmitting(true);
@@ -133,12 +157,39 @@ export function EmployeeDialog({
                 <span>Title <small>optional</small></span>
                 <Input value={draft.title ?? ''} onChange={(event) => setDraft({ ...draft, title: event.target.value })} placeholder="Senior Software Engineer" />
               </label>
+              {employee && <label>
+                <span>Discipline</span>
+                <Select value={draft.disciplineId} onValueChange={(value) => {
+                  const disciplineId = String(value);
+                  const careerLadderId = contexts.ladders.find((ladder) => ladder.disciplineId === disciplineId)?.id ?? '';
+                  const levelId = contexts.levels.find((level) => level.careerLadderId === careerLadderId)?.id ?? '';
+                  setDraft({ ...draft, disciplineId, careerLadderId, levelId });
+                }}>
+                  <SelectTrigger className="dialog-select" aria-label="Employee discipline"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {disciplines.map((discipline) => <SelectItem key={discipline.id} value={discipline.id}>{discipline.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </label>}
+              {employee && <label>
+                <span>Career ladder</span>
+                <Select value={draft.careerLadderId} onValueChange={(value) => {
+                  const careerLadderId = String(value);
+                  const levelId = contexts.levels.find((level) => level.careerLadderId === careerLadderId)?.id ?? '';
+                  setDraft({ ...draft, careerLadderId, levelId });
+                }}>
+                  <SelectTrigger className="dialog-select" aria-label="Employee career ladder"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {ladders.map((ladder) => <SelectItem key={ladder.id} value={ladder.id}>{ladder.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </label>}
               <label>
                 <span>Career level</span>
                 <Select value={draft.levelId} onValueChange={(value) => setDraft({ ...draft, levelId: String(value) })}>
-                  <SelectTrigger className="dialog-select"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="dialog-select" aria-label="Employee career level"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {[...workspace.levels].sort((a, b) => a.order - b.order).map((level) => (
+                    {[...levels].sort((a, b) => a.order - b.order).map((level) => (
                       <SelectItem key={level.id} value={level.id}>{level.name}</SelectItem>
                     ))}
                   </SelectContent>
@@ -374,6 +425,7 @@ export function WorkspaceDialog({
               <label><span>Career ladder</span><Input value={draft.ladder.name} onChange={(event) => setDraft({ ...draft, ladder: { ...draft.ladder, name: event.target.value } })} /></label>
               <label><span>Dataset name</span><Input value={draft.dataset.name} onChange={(event) => setDraft({ ...draft, dataset: { ...draft.dataset, name: event.target.value } })} /></label>
               <label><span>Effective date</span><Input type="date" value={draft.dataset.effectiveDate ?? ''} onChange={(event) => setDraft({ ...draft, dataset: { ...draft.dataset, effectiveDate: event.target.value } })} /></label>
+              <label><span>Dataset status</span><Select value={draft.dataset.active ? 'active' : 'inactive'} onValueChange={(value) => setDraft({ ...draft, dataset: { ...draft.dataset, active: value === 'active' } })}><SelectTrigger className="dialog-select" aria-label="Dataset status"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="active">Active</SelectItem><SelectItem value="inactive">Inactive</SelectItem></SelectContent></Select></label>
               <label><span>Currency</span><Input maxLength={3} value={draft.organization.currency} onChange={(event) => setDraft({ ...draft, organization: { ...draft.organization, currency: event.target.value.toUpperCase() } })} placeholder="USD" /></label>
               <label><span>Dataset source <small>optional</small></span><Input value={draft.dataset.source ?? ''} onChange={(event) => setDraft({ ...draft, dataset: { ...draft.dataset, source: event.target.value } })} placeholder="Survey or estimate source" /></label>
               <label><span>Labor market description <small>optional</small></span><Input value={draft.laborMarket.description ?? ''} onChange={(event) => setDraft({ ...draft, laborMarket: { ...draft.laborMarket, description: event.target.value } })} /></label>

@@ -16,6 +16,8 @@ export type Employee = {
   id: string;
   name: string;
   title?: string;
+  disciplineId: string;
+  careerLadderId: string;
   levelId: string;
   salary: number;
   notes?: string;
@@ -44,6 +46,7 @@ export type Workspace = {
     description?: string;
     source?: string;
     effectiveDate?: string;
+    active: boolean;
   };
   levels: Level[];
   market: MarketPoint[];
