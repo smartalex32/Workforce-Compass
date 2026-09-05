@@ -74,7 +74,7 @@ export function median(values: number[]): number | null {
 }
 
 export function calculateGap(value: number, reference: number | null): Gap | null {
-  if (!Number.isFinite(value) || reference === null || !Number.isFinite(reference) || reference <= 0) return null;
+  if (!Number.isFinite(value) || value <= 0 || reference === null || !Number.isFinite(reference) || reference <= 0) return null;
   const amount = value - reference;
   return { amount, percent: (amount / reference) * 100 };
 }
@@ -85,7 +85,8 @@ export function teamMedianForLevel(
 ): { median: number | null; sampleSize: number } {
   const salaries = employees
     .filter((employee) => employee.levelId === levelId)
-    .map((employee) => employee.salary);
+    .map((employee) => employee.salary)
+    .filter((salary) => Number.isFinite(salary) && salary > 0);
   return { median: median(salaries), sampleSize: salaries.length };
 }
 
@@ -142,7 +143,7 @@ export function calculateRetentionExposure(
   marketMedian: number | null,
   replacementCost: ReplacementCost | null,
 ): number | null {
-  if (marketMedian === null || replacementCost === null) return null;
+  if (!Number.isFinite(salary) || salary <= 0 || marketMedian === null || replacementCost === null) return null;
   return Math.max(0, marketMedian - salary) + replacementCost.total;
 }
 
@@ -160,7 +161,7 @@ export function marketRangePosition(
   salary: number,
   point: MarketPoint | undefined,
 ): { label: string; percentile: number | null } | null {
-  if (!point || !validateMarketPoint(point) || !Number.isFinite(salary)) return null;
+  if (!point || !validateMarketPoint(point) || !Number.isFinite(salary) || salary <= 0) return null;
   if (salary < point.p25) return { label: 'Below market range', percentile: null };
   if (salary > point.p75) return { label: 'Above market range', percentile: null };
   if (salary === point.p50) return { label: 'At market median', percentile: 50 };
@@ -248,6 +249,30 @@ export function monotoneCubicInterpolate(
     }
   });
   result.push(sorted[sorted.length - 1]);
+  return result;
+}
+
+/**
+ * Separates ordered observations when an intervening career level has no
+ * usable value. Rendering each segment independently prevents a smooth curve
+ * from implying market or team data at an unavailable level.
+ */
+export function splitContiguousSeries(
+  points: Array<{ x: number; y: number }>,
+): Array<Array<{ x: number; y: number }>> {
+  const sorted = [...points]
+    .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y))
+    .sort((a, b) => a.x - b.x)
+    .map((point) => ({ ...point }));
+  if (!sorted.length) return [];
+
+  const result: Array<Array<{ x: number; y: number }>> = [[sorted[0]]];
+  for (let index = 1; index < sorted.length; index += 1) {
+    const point = sorted[index];
+    const current = result[result.length - 1];
+    if (point.x === current[current.length - 1].x + 1) current.push(point);
+    else result.push([point]);
+  }
   return result;
 }
 

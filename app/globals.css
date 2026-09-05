@@ -437,6 +437,13 @@
   stroke-linejoin: round;
 }
 
+.market-observation circle {
+  fill: #fff;
+  stroke: #208d83;
+  stroke-width: 1.5;
+}
+.market-observation circle:nth-of-type(2) { fill: #208d83; }
+
 .team-curve {
   fill: none;
   stroke: #65737b;
@@ -444,6 +451,12 @@
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-dasharray: 7 6;
+}
+
+.team-observation {
+  fill: #65737b;
+  stroke: #fff;
+  stroke-width: 1.5;
 }
 
 .employee-point {
@@ -463,6 +476,15 @@
   r: 9px;
   fill: #e98040;
 }
+
+.employee-chart-tooltip rect {
+  fill: #163e4b;
+  stroke: rgb(255 255 255 / 32%);
+  stroke-width: 1;
+  filter: drop-shadow(0 8px 14px rgb(11 37 47 / 24%));
+}
+.employee-chart-tooltip text { fill: #dcebed; font-size: 11px; font-weight: 500; }
+.employee-chart-tooltip .employee-tooltip-name { fill: #fff; font-size: 12px; font-weight: 700; }
 
 .point-name,
 .matrix-name {

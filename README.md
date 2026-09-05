@@ -16,7 +16,7 @@ Retention exposure is a planning metric, not a prediction that an employee will 
 - Enter validated P25/P50/P75 ranges and preserve missing rows as unavailable.
 - Add, edit, delete, level, and compensate employees.
 - Search employee observations by name, title, or level and filter the directory by career level. Open details or edit from the list; deleting still requires confirmation. Directory filters leave chart observations and team medians unchanged.
-- Inspect a market band, monotone market median, team-level median curve, and individual observations.
+- Inspect raw market and team observations alongside their monotone curves; unavailable career levels break the curve rather than implying a value. Hover or focus an employee point for market, team, and replacement context.
 - Select an employee for market gap, team gap, market position, replacement-cost components, and retention exposure.
 - Configure time-to-hire, ramp, vacancy, productivity-loss, recruiting, interview, relocation/signing, and other cost assumptions by level.
 - Switch among Compensation Curve, Replacement Exposure, and Market Gap × Cost views.

@@ -7,6 +7,7 @@ import {
   marketRangePosition,
   median,
   monotoneCubicInterpolate,
+  splitContiguousSeries,
   teamMedianForLevel,
   validateMarketPoint,
   type Employee,
@@ -45,6 +46,18 @@ describe('compensation calculations', () => {
       median: 103500,
       sampleSize: 2,
     });
+  });
+
+  it('excludes invalid salaries from team statistics and comparisons', () => {
+    const employees: Employee[] = [
+      { id: '1', name: 'A', levelId: 'l2', salary: 103000 },
+      { id: '2', name: 'B', levelId: 'l2', salary: Number.NaN },
+      { id: '3', name: 'C', levelId: 'l2', salary: -1 },
+    ];
+    expect(teamMedianForLevel(employees, 'l2')).toEqual({ median: 103000, sampleSize: 1 });
+    expect(calculateGap(-1, 100000)).toBeNull();
+    expect(marketRangePosition(-1, { levelId: 'l2', p25: 90000, p50: 100000, p75: 110000 })).toBeNull();
+    expect(calculateRetentionExposure(-1, 100000, calculateReplacementCost(103000, assumption))).toBeNull();
   });
 
   it('calculates signed market gaps and rejects invalid references', () => {
@@ -147,5 +160,16 @@ describe('market curves and validation', () => {
     expect(first.every((point, index) => index === 0 || point.y >= first[index - 1].y)).toBe(true);
     expect(first[0]).toEqual(input[0]);
     expect(first.at(-1)).toEqual(input.at(-1));
+  });
+
+  it('splits curve observations around unavailable career levels', () => {
+    const source = [{ x: 0, y: 80000 }, { x: 1, y: 100000 }, { x: 3, y: 160000 }, { x: 5, y: 200000 }, { x: 6, y: 220000 }];
+    const segments = splitContiguousSeries(source);
+    expect(segments).toEqual([
+      [{ x: 0, y: 80000 }, { x: 1, y: 100000 }],
+      [{ x: 3, y: 160000 }],
+      [{ x: 5, y: 200000 }, { x: 6, y: 220000 }],
+    ]);
+    expect(source).toEqual([{ x: 0, y: 80000 }, { x: 1, y: 100000 }, { x: 3, y: 160000 }, { x: 5, y: 200000 }, { x: 6, y: 220000 }]);
   });
 });
