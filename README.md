@@ -72,4 +72,6 @@ GitHub Actions runs the same locked-install, test, typecheck, lint, and producti
 
 Existing child IDs cannot be silently moved to a different parent or analysis scope; conflicting writes return HTTP 409.
 
+Automated route tests cover valid persistence, malformed JSON, invalid references and market ranges, unchanged stored data after rejected writes, parent-scope conflicts, and missing explicit scopes.
+
 Employee records are not logged or sent to analytics. The Sites deployment is owner-only, so its application and data endpoints are protected by the platform access layer. Self-hosters should place the app behind their organization’s authentication boundary before entering production compensation data.
