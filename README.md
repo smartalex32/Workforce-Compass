@@ -48,6 +48,8 @@ npm run lint
 npm run build
 ```
 
+GitHub Actions runs the same locked-install, test, typecheck, lint, and production-build gates for every pull request and push to `main`.
+
 ## Architecture
 
 - `lib/domain.ts` contains deterministic compensation, team median, monotone curve, replacement-cost, and retention-exposure calculations.
