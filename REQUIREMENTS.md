@@ -117,7 +117,7 @@ Status values: **Implemented locally** means complete in the current checkout bu
 | R-UX-03 | Use contextual side panels and dialogs for progressive disclosure. | Implemented locally | [#8](https://github.com/smartalex32/Workforce-Compass/issues/8) |
 | R-UX-04 | Provide keyboard-focusable chart points and accessible labels. | Implemented locally | [#8](https://github.com/smartalex32/Workforce-Compass/issues/8) |
 | R-UX-05 | Give data-management actions clear labels and feedback. | Implemented locally | [#8](https://github.com/smartalex32/Workforce-Compass/issues/8) |
-| R-UX-06 | Provide sidebar navigation and user identity treatment shown in the GUI reference. | Partial | [#8](https://github.com/smartalex32/Workforce-Compass/issues/8) |
+| R-UX-06 | Provide sidebar navigation and user identity treatment shown in the GUI reference. | Implemented locally | [#8](https://github.com/smartalex32/Workforce-Compass/issues/8) |
 | R-UX-07 | Provide employee search/filter controls shown in the GUI reference. | Implemented locally | [#4](https://github.com/smartalex32/Workforce-Compass/issues/4), [#8](https://github.com/smartalex32/Workforce-Compass/issues/8) |
 | R-UX-08 | Use clear currency formatting and signed positive/negative comparisons. | Implemented locally | [#8](https://github.com/smartalex32/Workforce-Compass/issues/8) |
 | R-UX-09 | Avoid implying more precision than source data and assumptions support. | Implemented locally | [#8](https://github.com/smartalex32/Workforce-Compass/issues/8) |
