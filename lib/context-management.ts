@@ -52,6 +52,7 @@ export function createWorkspaceContext(
         description: '',
         source: '',
         effectiveDate: '',
+        active: true,
       },
       market: [],
     };
@@ -71,6 +72,7 @@ export function createWorkspaceContext(
         description: '',
         source: '',
         effectiveDate: '',
+        active: true,
       },
       market: [],
     };
@@ -132,6 +134,7 @@ export function createWorkspaceContext(
       description: '',
       source: '',
       effectiveDate: '',
+      active: true,
     },
     ...blankCareerData(idFactory),
   };

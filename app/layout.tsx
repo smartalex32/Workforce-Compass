@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Market Rate Analyzer',
+  title: 'Workforce Compass',
   description:
     'Interactive workforce compensation and replacement-cost analysis.',
 };

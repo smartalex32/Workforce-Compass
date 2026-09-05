@@ -4,6 +4,7 @@ import { TestD1Database } from './test-d1';
 import {
   listWorkspaceContexts,
   loadWorkspace,
+  reassignEmployee,
   saveWorkspace,
   WorkspaceConflictError,
 } from './workspace-repository';
@@ -21,7 +22,7 @@ describe('workspace repository', () => {
 
   it('persists employee creation, edits, level changes, and deletion across reloads without altering market data', async () => {
     const workspace = structuredClone(sampleWorkspace);
-    const newEmployee = { id: 'new-employee', name: 'Alex Chen', levelId: workspace.levels[0].id, salary: 93123.45 };
+    const newEmployee = { id: 'new-employee', name: 'Alex Chen', disciplineId: workspace.discipline.id, careerLadderId: workspace.ladder.id, levelId: workspace.levels[0].id, salary: 93123.45 };
     workspace.employees.push(newEmployee);
     await saveWorkspace(db, workspace);
     const created = (await loadWorkspace(db))!;
@@ -55,6 +56,7 @@ describe('workspace repository', () => {
       id: 'dataset-atlanta-2026',
       name: 'Atlanta 2026 Survey',
       effectiveDate: '2026-02-01',
+      active: true,
     };
     second.market = second.market.map((point) => ({
       ...point,
@@ -94,6 +96,9 @@ describe('workspace repository', () => {
     expect(contexts.datasets.map((dataset) => dataset.id)).toContain(
       second.dataset.id,
     );
+    expect(contexts.levels.map((level) => level.id)).toEqual(
+      first.levels.map((level) => level.id),
+    );
 
     const reordered = structuredClone(first);
     reordered.levels = reordered.levels.map((level, index) => ({
@@ -123,6 +128,100 @@ describe('workspace repository', () => {
     expect(atlantaAfterReorder?.market).toEqual(second.market);
   });
 
+  it('round-trips inactive datasets while excluding them from default selection', async () => {
+    const active = structuredClone(sampleWorkspace);
+    await saveWorkspace(db, active);
+
+    const inactive = structuredClone(active);
+    inactive.dataset = {
+      id: 'dataset-inactive',
+      name: 'Archived estimate',
+      effectiveDate: '2027-01-01',
+      active: false,
+    };
+    await saveWorkspace(db, inactive);
+
+    const explicitlyLoaded = await loadWorkspace(db, {
+      organizationId: inactive.organization.id,
+      laborMarketId: inactive.laborMarket.id,
+      disciplineId: inactive.discipline.id,
+      ladderId: inactive.ladder.id,
+      datasetId: inactive.dataset.id,
+    });
+    expect(explicitlyLoaded?.dataset.active).toBe(false);
+
+    const defaultWorkspace = await loadWorkspace(db);
+    expect(defaultWorkspace?.dataset.id).toBe(active.dataset.id);
+    expect(defaultWorkspace?.dataset.active).toBe(true);
+
+    active.dataset.active = false;
+    await saveWorkspace(db, active);
+    const inactiveFallback = await loadWorkspace(db);
+    expect(inactiveFallback?.dataset.active).toBe(false);
+    expect(inactiveFallback?.dataset.id).toBe(inactive.dataset.id);
+  });
+
+  it('atomically reassigns an employee to a validated discipline, ladder, and level', async () => {
+    const source = structuredClone(sampleWorkspace);
+    await saveWorkspace(db, source);
+
+    const target = structuredClone(source);
+    target.discipline = { id: 'discipline-systems', name: 'Systems Engineering' };
+    target.ladder = { id: 'ladder-systems-ic', name: 'Systems IC' };
+    target.levels = [{ id: 'systems-senior', name: 'Senior', order: 10 }];
+    target.market = [];
+    target.employees = [];
+    target.assumptions = [];
+    await saveWorkspace(db, target);
+
+    const employee = {
+      ...source.employees[0],
+      name: 'Moved Employee',
+      disciplineId: target.discipline.id,
+      careerLadderId: target.ladder.id,
+      levelId: target.levels[0].id,
+      salary: 123_456,
+    };
+    await expect(reassignEmployee(db, {
+      organizationId: source.organization.id,
+      sourceDisciplineId: source.discipline.id,
+      sourceCareerLadderId: source.ladder.id,
+      employee,
+    })).resolves.toBe(true);
+
+    const reloadedSource = await loadWorkspace(db, {
+      organizationId: source.organization.id,
+      laborMarketId: source.laborMarket.id,
+      disciplineId: source.discipline.id,
+      ladderId: source.ladder.id,
+      datasetId: source.dataset.id,
+    });
+    const reloadedTarget = await loadWorkspace(db, {
+      organizationId: target.organization.id,
+      laborMarketId: target.laborMarket.id,
+      disciplineId: target.discipline.id,
+      ladderId: target.ladder.id,
+      datasetId: target.dataset.id,
+    });
+    expect(reloadedSource?.employees.some((item) => item.id === employee.id)).toBe(false);
+    expect(reloadedTarget?.employees.find((item) => item.id === employee.id)).toMatchObject(employee);
+
+    await expect(reassignEmployee(db, {
+      organizationId: source.organization.id,
+      sourceDisciplineId: target.discipline.id,
+      sourceCareerLadderId: target.ladder.id,
+      employee: { ...employee, levelId: 'missing-level' },
+    })).resolves.toBe(false);
+    const unchangedTarget = await loadWorkspace(db, {
+      organizationId: target.organization.id,
+      laborMarketId: target.laborMarket.id,
+      disciplineId: target.discipline.id,
+      ladderId: target.ladder.id,
+      datasetId: target.dataset.id,
+    });
+    expect(unchangedTarget?.employees.find((item) => item.id === employee.id)?.levelId).toBe(target.levels[0].id);
+  });
+
   it('preserves independent organizations and missing market data', async () => {
     const first = structuredClone(sampleWorkspace);
     await saveWorkspace(db, first);
@@ -132,7 +231,7 @@ describe('workspace repository', () => {
     second.laborMarket = { id: 'market-2', name: 'Remote — United States' };
     second.discipline = { id: 'discipline-2', name: 'Systems Engineering' };
     second.ladder = { id: 'ladder-2', name: 'Technical Leadership' };
-    second.dataset = { id: 'dataset-2', name: 'Recruiting Estimate' };
+    second.dataset = { id: 'dataset-2', name: 'Recruiting Estimate', active: true };
     second.levels = second.levels.map((level, index) => ({
       ...level,
       id: `beta-level-${index + 1}`,

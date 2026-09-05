@@ -2,7 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { sampleWorkspace } from '@/lib/sample-data';
 import { TestD1Database } from '@/lib/test-d1';
 
-const workerEnv = vi.hoisted(() => ({ DB: undefined as unknown }));
+const workerEnv = vi.hoisted(() => ({
+  DB: undefined as unknown,
+  WORKFORCE_COMPASS_ALLOW_INSECURE_LOCAL: 'true' as string | undefined,
+  WORKFORCE_COMPASS_TRUST_SITES_IDENTITY: undefined as string | undefined,
+}));
 
 vi.mock('cloudflare:workers', () => ({ env: workerEnv }));
 
@@ -22,6 +26,8 @@ describe('workspace API route', () => {
   beforeEach(() => {
     database = new TestD1Database();
     workerEnv.DB = database;
+    workerEnv.WORKFORCE_COMPASS_ALLOW_INSECURE_LOCAL = 'true';
+    workerEnv.WORKFORCE_COMPASS_TRUST_SITES_IDENTITY = undefined;
   });
 
   afterEach(() => database.close());
@@ -42,6 +48,19 @@ describe('workspace API route', () => {
     expect(loaded.workspace.organization).toEqual(sampleWorkspace.organization);
     expect(loaded.workspace.employees).toHaveLength(sampleWorkspace.employees.length);
     expect(loaded.workspace.assumptions).toHaveLength(sampleWorkspace.assumptions.length);
+  });
+
+  it('fails closed without an authenticated identity or explicit local opt-in', async () => {
+    workerEnv.WORKFORCE_COMPASS_ALLOW_INSECURE_LOCAL = undefined;
+    const response = await GET(new Request('http://workforce.test/api/workspace'));
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({ error: 'Authentication is required.' });
+
+    workerEnv.WORKFORCE_COMPASS_TRUST_SITES_IDENTITY = 'true';
+    const authenticated = await GET(new Request('http://workforce.test/api/workspace', {
+      headers: { 'oai-authenticated-user-id': 'site-user-1' },
+    }));
+    expect(authenticated.status).toBe(200);
   });
 
   it('rejects malformed JSON and incomplete workspace bodies', async () => {

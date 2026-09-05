@@ -28,6 +28,16 @@ const assumption: HiringAssumption = {
   otherCost: 1000,
 };
 
+function scopedEmployee(
+  employee: Omit<Employee, 'disciplineId' | 'careerLadderId'>,
+): Employee {
+  return {
+    ...employee,
+    disciplineId: 'discipline',
+    careerLadderId: 'ladder',
+  };
+}
+
 describe('compensation calculations', () => {
   it('calculates odd and even team medians without mutating observations', () => {
     const values = [176000, 161000, 169500];
@@ -39,9 +49,9 @@ describe('compensation calculations', () => {
 
   it('returns the sample size with the level median', () => {
     const employees: Employee[] = [
-      { id: '1', name: 'A', levelId: 'l2', salary: 99000 },
-      { id: '2', name: 'B', levelId: 'l2', salary: 108000 },
-      { id: '3', name: 'C', levelId: 'l3', salary: 140000 },
+      scopedEmployee({ id: '1', name: 'A', levelId: 'l2', salary: 99000 }),
+      scopedEmployee({ id: '2', name: 'B', levelId: 'l2', salary: 108000 }),
+      scopedEmployee({ id: '3', name: 'C', levelId: 'l3', salary: 140000 }),
     ];
     expect(teamMedianForLevel(employees, 'l2')).toEqual({
       median: 103500,
@@ -51,9 +61,9 @@ describe('compensation calculations', () => {
 
   it('excludes invalid salaries from team statistics and comparisons', () => {
     const employees: Employee[] = [
-      { id: '1', name: 'A', levelId: 'l2', salary: 103000 },
-      { id: '2', name: 'B', levelId: 'l2', salary: Number.NaN },
-      { id: '3', name: 'C', levelId: 'l2', salary: -1 },
+      scopedEmployee({ id: '1', name: 'A', levelId: 'l2', salary: 103000 }),
+      scopedEmployee({ id: '2', name: 'B', levelId: 'l2', salary: Number.NaN }),
+      scopedEmployee({ id: '3', name: 'C', levelId: 'l2', salary: -1 }),
     ];
     expect(teamMedianForLevel(employees, 'l2')).toEqual({ median: 103000, sampleSize: 1 });
     expect(calculateGap(-1, 100000)).toBeNull();
@@ -83,13 +93,13 @@ describe('compensation calculations', () => {
   });
 
   it('keeps calculations unavailable when market data and assumptions are missing', () => {
-    const employee: Employee = { id: '1', name: 'A', levelId: 'l1', salary: 90000 };
+    const employee = scopedEmployee({ id: '1', name: 'A', levelId: 'l1', salary: 90000 });
     const workspace: Workspace = {
       organization: { id: 'org', name: 'Acme', currency: 'USD' },
       laborMarket: { id: 'market', name: 'Remote — US' },
       discipline: { id: 'discipline', name: 'Engineering' },
       ladder: { id: 'ladder', name: 'IC' },
-      dataset: { id: 'dataset', name: 'Survey' },
+      dataset: { id: 'dataset', name: 'Survey', active: true },
       levels: [{ id: 'l1', name: 'L1', order: 1 }],
       market: [],
       employees: [employee],
@@ -145,9 +155,9 @@ describe('replacement planning calculations', () => {
     const summary = summarizeReplacementCostsByLevel(
       levels,
       [
-        { id: 'e1', name: 'One', levelId: 'l1', salary: 100000 },
-        { id: 'e2', name: 'Two', levelId: 'l1', salary: -1 },
-        { id: 'e3', name: 'Three', levelId: 'l2', salary: 120000 },
+        scopedEmployee({ id: 'e1', name: 'One', levelId: 'l1', salary: 100000 }),
+        scopedEmployee({ id: 'e2', name: 'Two', levelId: 'l1', salary: -1 }),
+        scopedEmployee({ id: 'e3', name: 'Three', levelId: 'l2', salary: 120000 }),
       ],
       [l1Assumption],
     );

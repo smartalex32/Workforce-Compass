@@ -1,4 +1,4 @@
-import type { Workspace } from '@/lib/domain';
+import type { Employee, Workspace } from '@/lib/domain';
 
 type D1Row = Record<string, string | number | null>;
 
@@ -35,6 +35,13 @@ export type WorkspaceContexts = {
     name: string;
     description?: string;
   }>;
+  levels: Array<{
+    id: string;
+    careerLadderId: string;
+    name: string;
+    order: number;
+    description?: string;
+  }>;
   datasets: Array<{
     id: string;
     laborMarketId: string;
@@ -44,6 +51,13 @@ export type WorkspaceContexts = {
     source?: string;
     active: boolean;
   }>;
+};
+
+export type EmployeeReassignment = {
+  organizationId: string;
+  sourceDisciplineId: string;
+  sourceCareerLadderId: string;
+  employee: Employee;
 };
 
 export class WorkspaceConflictError extends Error {
@@ -82,6 +96,16 @@ async function assertParent(
 
 async function assertEmployeeScope(db: D1Database, workspace: Workspace) {
   if (!workspace.employees.length) return;
+  const invalid = workspace.employees.find(
+    (employee) =>
+      employee.disciplineId !== workspace.discipline.id ||
+      employee.careerLadderId !== workspace.ladder.id,
+  );
+  if (invalid) {
+    throw new WorkspaceConflictError(
+      `Employee ${invalid.id} is assigned to a different analysis scope.`,
+    );
+  }
   const placeholders = workspace.employees.map(() => '?').join(', ');
   const existing = await db
     .prepare(
@@ -174,13 +198,13 @@ export async function loadWorkspace(
   const dataset = selection.datasetId
     ? await db
         .prepare(
-          'SELECT id, name, description, source, effective_date FROM market_datasets WHERE id = ? AND labor_market_id = ? LIMIT 1',
+          'SELECT id, name, description, source, effective_date, is_active FROM market_datasets WHERE id = ? AND labor_market_id = ? LIMIT 1',
         )
         .bind(selection.datasetId, laborMarketId)
         .first<D1Row>()
     : await db
         .prepare(
-          'SELECT id, name, description, source, effective_date FROM market_datasets WHERE labor_market_id = ? AND is_active = 1 ORDER BY effective_date DESC, name LIMIT 1',
+          'SELECT id, name, description, source, effective_date, is_active FROM market_datasets WHERE labor_market_id = ? ORDER BY is_active DESC, effective_date DESC, name LIMIT 1',
         )
         .bind(laborMarketId)
         .first<D1Row>();
@@ -203,7 +227,7 @@ export async function loadWorkspace(
       .all<D1Row>(),
     db
       .prepare(
-        'SELECT id, name, title, level_id, base_salary, notes FROM employees WHERE organization_id = ? AND discipline_id = ? AND career_ladder_id = ? ORDER BY name',
+        'SELECT id, name, title, discipline_id, career_ladder_id, level_id, base_salary, notes FROM employees WHERE organization_id = ? AND discipline_id = ? AND career_ladder_id = ? ORDER BY name',
       )
       .bind(organizationId, disciplineId, ladderId)
       .all<D1Row>(),
@@ -250,6 +274,7 @@ export async function loadWorkspace(
       effectiveDate: dataset.effective_date
         ? String(dataset.effective_date)
         : undefined,
+      active: Boolean(dataset.is_active),
     },
     levels: levelRows.results.map((row) => ({
       id: String(row.id),
@@ -267,6 +292,8 @@ export async function loadWorkspace(
       id: String(row.id),
       name: String(row.name),
       title: row.title ? String(row.title) : undefined,
+      disciplineId: String(row.discipline_id),
+      careerLadderId: String(row.career_ladder_id),
       levelId: String(row.level_id),
       salary: Number(row.base_salary),
       notes: row.notes ? String(row.notes) : undefined,
@@ -315,6 +342,7 @@ export async function listWorkspaceContexts(
       laborMarkets: [],
       disciplines: [],
       ladders: [],
+      levels: [],
       datasets: [],
     };
   }
@@ -355,6 +383,16 @@ export async function listWorkspaceContexts(
         .bind(...laborMarketIds)
         .all<D1Row>()
     : { results: [] as D1Row[] };
+  const ladderIds = ladders.results.map((row) => String(row.id));
+  const levelPlaceholders = ladderIds.map(() => '?').join(', ');
+  const levels = ladderIds.length
+    ? await db
+        .prepare(
+          `SELECT id, career_ladder_id, name, ordering_value, description FROM levels WHERE career_ladder_id IN (${levelPlaceholders}) ORDER BY ordering_value, name`,
+        )
+        .bind(...ladderIds)
+        .all<D1Row>()
+    : { results: [] as D1Row[] };
 
   return {
     organizations: organizations.results.map((row) => ({
@@ -382,6 +420,13 @@ export async function listWorkspaceContexts(
       id: String(row.id),
       disciplineId: String(row.discipline_id),
       name: String(row.name),
+      description: row.description ? String(row.description) : undefined,
+    })),
+    levels: levels.results.map((row) => ({
+      id: String(row.id),
+      careerLadderId: String(row.career_ladder_id),
+      name: String(row.name),
+      order: Number(row.ordering_value),
       description: row.description ? String(row.description) : undefined,
     })),
     datasets: datasets.results.map((row) => ({
@@ -518,8 +563,8 @@ export async function saveWorkspace(
       ),
     db
       .prepare(
-        `INSERT INTO market_datasets (id, labor_market_id, name, description, effective_date, source, is_active) VALUES (?, ?, ?, ?, ?, ?, 1)
-         ON CONFLICT(id) DO UPDATE SET labor_market_id = CASE WHEN market_datasets.labor_market_id = excluded.labor_market_id THEN market_datasets.labor_market_id ELSE NULL END, name = excluded.name, description = excluded.description, effective_date = excluded.effective_date, source = excluded.source, is_active = 1`,
+        `INSERT INTO market_datasets (id, labor_market_id, name, description, effective_date, source, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET labor_market_id = CASE WHEN market_datasets.labor_market_id = excluded.labor_market_id THEN market_datasets.labor_market_id ELSE NULL END, name = excluded.name, description = excluded.description, effective_date = excluded.effective_date, source = excluded.source, is_active = excluded.is_active`,
       )
       .bind(
         workspace.dataset.id,
@@ -528,6 +573,7 @@ export async function saveWorkspace(
         workspace.dataset.description ?? null,
         workspace.dataset.effectiveDate ?? null,
         workspace.dataset.source ?? null,
+        workspace.dataset.active ? 1 : 0,
       ),
     db
       .prepare(
@@ -640,4 +686,47 @@ export async function saveWorkspace(
   ];
 
   await db.batch(statements);
+}
+
+/**
+ * Atomically edits an employee and, when requested, moves the record to a
+ * different discipline, ladder, and level within the same organization.
+ * Relationship checks live in the UPDATE so a partial cross-scope move cannot
+ * be persisted.
+ */
+export async function reassignEmployee(
+  db: D1Database,
+  input: EmployeeReassignment,
+): Promise<boolean> {
+  const { employee } = input;
+  const result = await db
+    .prepare(
+      `UPDATE employees
+       SET discipline_id = ?, career_ladder_id = ?, level_id = ?, name = ?, title = ?, base_salary = ?, notes = ?
+       WHERE id = ? AND organization_id = ? AND discipline_id = ? AND career_ladder_id = ?
+         AND EXISTS (SELECT 1 FROM disciplines WHERE id = ? AND organization_id = employees.organization_id)
+         AND EXISTS (SELECT 1 FROM career_ladders WHERE id = ? AND discipline_id = ?)
+         AND EXISTS (SELECT 1 FROM levels WHERE id = ? AND career_ladder_id = ?)`,
+    )
+    .bind(
+      employee.disciplineId,
+      employee.careerLadderId,
+      employee.levelId,
+      employee.name,
+      employee.title ?? null,
+      employee.salary,
+      employee.notes ?? null,
+      employee.id,
+      input.organizationId,
+      input.sourceDisciplineId,
+      input.sourceCareerLadderId,
+      employee.disciplineId,
+      employee.careerLadderId,
+      employee.disciplineId,
+      employee.levelId,
+      employee.careerLadderId,
+    )
+    .run();
+
+  return Number(result.meta?.changes ?? 0) === 1;
 }

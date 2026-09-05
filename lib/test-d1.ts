@@ -25,8 +25,8 @@ class TestStatement {
   }
 
   run() {
-    this.database.prepare(this.sql).run(...(this.parameters as never[]));
-    return { success: true };
+    const result = this.database.prepare(this.sql).run(...(this.parameters as never[]));
+    return { success: true, meta: { changes: result.changes } };
   }
 }
 

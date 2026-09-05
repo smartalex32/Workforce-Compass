@@ -12,6 +12,7 @@
     "lint": "oxlint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --config vitest.config.ts",
+    "test:e2e": "playwright test",
     "format": "oxfmt",
     "db:generate": "drizzle-kit generate"
   },
@@ -41,6 +42,7 @@
     "@cloudflare/vite-plugin": "^1.54.4",
     "@cloudflare/workers-types": "^5.20260904.1",
     "@openai/sites-vite-plugin": "0.2.0",
+    "@playwright/test": "1.63.0",
     "@tailwindcss/postcss": "4.2.1",
     "@types/node": "22.19.19",
     "@types/react": "19.2.14",
@@ -56,6 +58,11 @@
     "vite": "^8.2.2",
     "vitest": "^3.2.6",
     "wrangler": "^4.129.0"
+  },
+  "overrides": {
+    "@esbuild-kit/core-utils": {
+      "esbuild": "0.25.12"
+    }
   },
   "type": "module"
 }

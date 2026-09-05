@@ -35,8 +35,17 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
+      - name: Audit dependency tree
+        run: npm audit --audit-level=moderate
+
       - name: Run unit and repository tests
         run: npm test -- --run
+
+      - name: Install Chromium for browser tests
+        run: npx playwright install --with-deps chromium
+
+      - name: Run end-to-end acceptance test
+        run: npm run test:e2e
 
       - name: Check TypeScript
         run: npm run typecheck
