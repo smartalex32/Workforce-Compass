@@ -58,6 +58,7 @@ export type EmployeeReassignment = {
   sourceDisciplineId: string;
   sourceCareerLadderId: string;
   employee: Employee;
+  actor?: string;
 };
 
 export class WorkspaceConflictError extends Error {
@@ -124,6 +125,15 @@ async function assertEmployeeScope(db: D1Database, workspace: Workspace) {
     throw new WorkspaceConflictError(
       `Employee ${String(conflicting.id)} already belongs to a different analysis scope.`,
     );
+  }
+  const numbered = workspace.employees.filter((employee) => employee.employeeNumber);
+  if (numbered.length) {
+    const numberPlaceholders = numbered.map(() => '?').join(', ');
+    const duplicates = await db.prepare(
+      `SELECT id, employee_number FROM employees WHERE organization_id = ? AND employee_number IN (${numberPlaceholders})`,
+    ).bind(workspace.organization.id, ...numbered.map((employee) => employee.employeeNumber!)).all<D1Row>();
+    const duplicate = duplicates.results.find((row) => numbered.some((employee) => employee.employeeNumber === String(row.employee_number) && employee.id !== String(row.id)));
+    if (duplicate) throw new WorkspaceConflictError(`Employee number ${String(duplicate.employee_number)} already belongs to another employee.`);
   }
 }
 
@@ -227,7 +237,7 @@ export async function loadWorkspace(
       .all<D1Row>(),
     db
       .prepare(
-        'SELECT id, name, title, discipline_id, career_ladder_id, level_id, base_salary, notes FROM employees WHERE organization_id = ? AND discipline_id = ? AND career_ladder_id = ? ORDER BY name',
+        'SELECT id, employee_number, name, title, discipline_id, career_ladder_id, level_id, base_salary, annual_bonus, annual_equity, annual_benefits, location, start_date, team, manager_id, performance_rating, notes FROM employees WHERE organization_id = ? AND discipline_id = ? AND career_ladder_id = ? ORDER BY name',
       )
       .bind(organizationId, disciplineId, ladderId)
       .all<D1Row>(),
@@ -290,12 +300,21 @@ export async function loadWorkspace(
     })),
     employees: employeeRows.results.map((row) => ({
       id: String(row.id),
+      employeeNumber: row.employee_number ? String(row.employee_number) : undefined,
       name: String(row.name),
       title: row.title ? String(row.title) : undefined,
       disciplineId: String(row.discipline_id),
       careerLadderId: String(row.career_ladder_id),
       levelId: String(row.level_id),
       salary: Number(row.base_salary),
+      annualBonus: row.annual_bonus == null ? undefined : Number(row.annual_bonus),
+      annualEquity: row.annual_equity == null ? undefined : Number(row.annual_equity),
+      annualBenefits: row.annual_benefits == null ? undefined : Number(row.annual_benefits),
+      location: row.location ? String(row.location) : undefined,
+      startDate: row.start_date ? String(row.start_date) : undefined,
+      team: row.team ? String(row.team) : undefined,
+      managerId: row.manager_id ? String(row.manager_id) : undefined,
+      performanceRating: row.performance_rating == null ? undefined : Number(row.performance_rating),
       notes: row.notes ? String(row.notes) : undefined,
     })),
     assumptions: assumptionRows.results.map((row) => ({
@@ -447,6 +466,7 @@ export async function saveWorkspace(
   db: D1Database,
   workspace: Workspace,
   now = new Date().toISOString(),
+  actor = 'authenticated-user',
 ) {
   await Promise.all([
     assertParent(
@@ -495,6 +515,11 @@ export async function saveWorkspace(
     )
     .bind(workspace.ladder.id)
     .all<D1Row>();
+  const existingEmployees = await db
+    .prepare('SELECT id, base_salary FROM employees WHERE organization_id = ? AND discipline_id = ? AND career_ladder_id = ?')
+    .bind(workspace.organization.id, workspace.discipline.id, workspace.ladder.id)
+    .all<D1Row>();
+  const previousSalaryById = new Map(existingEmployees.results.map((employee) => [String(employee.id), Number(employee.base_salary)]));
   const reservedOrders = new Set([
     ...existingLevels.results.map((level) => Number(level.ordering_value)),
     ...workspace.levels.map((level) => level.order),
@@ -645,10 +670,11 @@ export async function saveWorkspace(
     ...workspace.employees.map((employee) =>
       db
         .prepare(
-          'INSERT INTO employees (id, organization_id, discipline_id, career_ladder_id, level_id, name, title, base_salary, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          'INSERT INTO employees (id, employee_number, organization_id, discipline_id, career_ladder_id, level_id, name, title, base_salary, annual_bonus, annual_equity, annual_benefits, location, start_date, team, manager_id, performance_rating, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         )
         .bind(
           employee.id,
+          employee.employeeNumber ?? null,
           workspace.organization.id,
           workspace.discipline.id,
           workspace.ladder.id,
@@ -656,9 +682,24 @@ export async function saveWorkspace(
           employee.name,
           employee.title ?? null,
           employee.salary,
+          employee.annualBonus ?? null,
+          employee.annualEquity ?? null,
+          employee.annualBenefits ?? null,
+          employee.location ?? null,
+          employee.startDate ?? null,
+          employee.team ?? null,
+          employee.managerId ?? null,
+          employee.performanceRating ?? null,
           employee.notes ?? null,
         ),
     ),
+    ...workspace.employees.flatMap((employee) => {
+      const previousSalary = previousSalaryById.get(employee.id);
+      if (previousSalary === undefined || previousSalary === employee.salary) return [];
+      return [db.prepare(
+        'INSERT INTO salary_history (id, employee_id, previous_salary, new_salary, effective_at) VALUES (?, ?, ?, ?, ?)',
+      ).bind(crypto.randomUUID(), employee.id, previousSalary, employee.salary, now)];
+    }),
     ...workspace.assumptions.map((assumption) =>
       db
         .prepare(
@@ -683,6 +724,31 @@ export async function saveWorkspace(
           assumption.otherCost,
         ),
     ),
+    db.prepare(
+      'INSERT INTO compensation_snapshots (id, organization_id, captured_at, data_json) VALUES (?, ?, ?, ?)',
+    ).bind(
+      crypto.randomUUID(),
+      workspace.organization.id,
+      now,
+      JSON.stringify(workspace.employees.map((employee) => ({
+        id: employee.id,
+        salary: employee.salary,
+        totalCompensation: employee.salary + (employee.annualBonus ?? 0) + (employee.annualEquity ?? 0) + (employee.annualBenefits ?? 0),
+        levelId: employee.levelId,
+      }))),
+    ),
+    db.prepare(
+      'INSERT INTO audit_events (id, organization_id, actor, action, entity_type, entity_id, metadata_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    ).bind(
+      crypto.randomUUID(),
+      workspace.organization.id,
+      actor,
+      'workspace.saved',
+      'workspace',
+      workspace.ladder.id,
+      JSON.stringify({ employeeCount: workspace.employees.length, datasetId: workspace.dataset.id }),
+      now,
+    ),
   ];
 
   await db.batch(statements);
@@ -699,10 +765,15 @@ export async function reassignEmployee(
   input: EmployeeReassignment,
 ): Promise<boolean> {
   const { employee } = input;
+  const previous = await db.prepare('SELECT base_salary FROM employees WHERE id = ? AND organization_id = ?').bind(employee.id, input.organizationId).first<D1Row>();
+  if (employee.employeeNumber) {
+    const duplicate = await db.prepare('SELECT id FROM employees WHERE organization_id = ? AND employee_number = ? AND id <> ?').bind(input.organizationId, employee.employeeNumber, employee.id).first<D1Row>();
+    if (duplicate) return false;
+  }
   const result = await db
     .prepare(
       `UPDATE employees
-       SET discipline_id = ?, career_ladder_id = ?, level_id = ?, name = ?, title = ?, base_salary = ?, notes = ?
+       SET discipline_id = ?, career_ladder_id = ?, level_id = ?, name = ?, title = ?, base_salary = ?, employee_number = ?, annual_bonus = ?, annual_equity = ?, annual_benefits = ?, location = ?, start_date = ?, team = ?, manager_id = ?, performance_rating = ?, notes = ?
        WHERE id = ? AND organization_id = ? AND discipline_id = ? AND career_ladder_id = ?
          AND EXISTS (SELECT 1 FROM disciplines WHERE id = ? AND organization_id = employees.organization_id)
          AND EXISTS (SELECT 1 FROM career_ladders WHERE id = ? AND discipline_id = ?)
@@ -715,6 +786,15 @@ export async function reassignEmployee(
       employee.name,
       employee.title ?? null,
       employee.salary,
+      employee.employeeNumber ?? null,
+      employee.annualBonus ?? null,
+      employee.annualEquity ?? null,
+      employee.annualBenefits ?? null,
+      employee.location ?? null,
+      employee.startDate ?? null,
+      employee.team ?? null,
+      employee.managerId ?? null,
+      employee.performanceRating ?? null,
       employee.notes ?? null,
       employee.id,
       input.organizationId,
@@ -728,5 +808,18 @@ export async function reassignEmployee(
     )
     .run();
 
-  return Number(result.meta?.changes ?? 0) === 1;
+  const moved = Number(result.meta?.changes ?? 0) === 1;
+  if (moved) {
+    const now = new Date().toISOString();
+    const statements = [
+      db.prepare('INSERT INTO audit_events (id, organization_id, actor, action, entity_type, entity_id, metadata_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+        .bind(crypto.randomUUID(), input.organizationId, input.actor ?? 'authenticated-user', 'employee.reassigned', 'employee', employee.id, JSON.stringify({ disciplineId: employee.disciplineId, careerLadderId: employee.careerLadderId, levelId: employee.levelId }), now),
+    ];
+    if (previous && Number(previous.base_salary) !== employee.salary) {
+      statements.push(db.prepare('INSERT INTO salary_history (id, employee_id, previous_salary, new_salary, effective_at) VALUES (?, ?, ?, ?, ?)')
+        .bind(crypto.randomUUID(), employee.id, Number(previous.base_salary), employee.salary, now));
+    }
+    await db.batch(statements);
+  }
+  return moved;
 }

@@ -199,6 +199,48 @@ export function EmployeeDialog({
                 <span>Annual base salary</span>
                 <Input type="number" min="0.01" step="0.01" value={draft.salary || ''} onChange={(event) => setDraft({ ...draft, salary: numericValue(event.target.value) })} placeholder="165000" />
               </label>
+              <label>
+                <span>Employee number <small>optional</small></span>
+                <Input value={draft.employeeNumber ?? ''} onChange={(event) => setDraft({ ...draft, employeeNumber: event.target.value || undefined })} placeholder="E-1042" />
+              </label>
+              <label>
+                <span>Annual bonus <small>optional</small></span>
+                <Input type="number" min="0" step="0.01" value={draft.annualBonus ?? ''} onChange={(event) => setDraft({ ...draft, annualBonus: optionalNumericValue(event.target.value) ?? undefined })} placeholder="15000" />
+              </label>
+              <label>
+                <span>Annual equity <small>optional</small></span>
+                <Input type="number" min="0" step="0.01" value={draft.annualEquity ?? ''} onChange={(event) => setDraft({ ...draft, annualEquity: optionalNumericValue(event.target.value) ?? undefined })} placeholder="25000" />
+              </label>
+              <label>
+                <span>Annual benefits <small>optional</small></span>
+                <Input type="number" min="0" step="0.01" value={draft.annualBenefits ?? ''} onChange={(event) => setDraft({ ...draft, annualBenefits: optionalNumericValue(event.target.value) ?? undefined })} placeholder="18000" />
+              </label>
+              <label>
+                <span>Location <small>optional</small></span>
+                <Input value={draft.location ?? ''} onChange={(event) => setDraft({ ...draft, location: event.target.value || undefined })} placeholder="Chicago, IL" />
+              </label>
+              <label>
+                <span>Start date <small>optional</small></span>
+                <Input type="date" value={draft.startDate ?? ''} onChange={(event) => setDraft({ ...draft, startDate: event.target.value || undefined })} />
+              </label>
+              <label>
+                <span>Team <small>optional</small></span>
+                <Input value={draft.team ?? ''} onChange={(event) => setDraft({ ...draft, team: event.target.value || undefined })} placeholder="Platform" />
+              </label>
+              <label>
+                <span>Manager <small>optional</small></span>
+                <Select value={draft.managerId ? `employee:${draft.managerId}` : 'none'} onValueChange={(value) => setDraft({ ...draft, managerId: value === 'none' ? undefined : String(value).slice(9) })}>
+                  <SelectTrigger className="dialog-select" aria-label="Employee manager"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No manager</SelectItem>
+                    {workspace.employees.filter((item) => item.id !== draft.id).map((item) => <SelectItem key={item.id} value={`employee:${item.id}`}>{item.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </label>
+              <label>
+                <span>Performance rating <small>0–5, optional</small></span>
+                <Input type="number" min="0" max="5" step="0.1" value={draft.performanceRating ?? ''} onChange={(event) => setDraft({ ...draft, performanceRating: optionalNumericValue(event.target.value) ?? undefined })} placeholder="4.2" />
+              </label>
               <label className="field-wide">
                 <span>Notes <small>optional</small></span>
                 <Textarea value={draft.notes ?? ''} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} placeholder="Context that should accompany this observation" />

@@ -36,12 +36,11 @@ export class TestD1Database {
 
   constructor() {
     this.sqlite.exec('PRAGMA foreign_keys = ON');
-    const migration = readFileSync(
-      new URL('../drizzle/0000_cuddly_cassandra_nova.sql', import.meta.url),
-      'utf8',
-    );
-    for (const statement of migration.split('--> statement-breakpoint')) {
-      if (statement.trim()) this.sqlite.exec(statement);
+    for (const name of ['0000_cuddly_cassandra_nova.sql', '0001_nervous_black_queen.sql']) {
+      const migration = readFileSync(new URL(`../drizzle/${name}`, import.meta.url), 'utf8');
+      for (const statement of migration.split('--> statement-breakpoint')) {
+        if (statement.trim()) this.sqlite.exec(statement);
+      }
     }
   }
 
