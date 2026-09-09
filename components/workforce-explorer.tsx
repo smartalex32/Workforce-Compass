@@ -1311,6 +1311,7 @@ export function WorkforceExplorer({
         </div>
       </header>
 
+      <div className="app-main-scroll">
       <section id="workspace" className="workspace-toolbar" aria-label="Analysis filters">
         <div className="context-copy">
           <p className="eyebrow">Compensation workspace</p>
@@ -1535,6 +1536,7 @@ export function WorkforceExplorer({
         workspace={workspace}
         onSave={persistWorkspace}
       />}
+      </div>
       </div>
     </main>
   );
