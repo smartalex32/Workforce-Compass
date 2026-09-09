@@ -32,6 +32,14 @@ test('completes the primary compensation planning workflow and reloads saved dat
       });
       return;
     }
+    if (url.pathname === '/api/planning') {
+      await route.fulfill({ json: {
+        state: { version: 1, members: [], scenarios: [], hiringHistory: [], productivityCurves: [], geographicDifferentials: [], integrations: [] },
+        role: 'admin',
+        history: { snapshots: [], salaryChanges: [], auditEvents: [] },
+      } });
+      return;
+    }
     if (url.pathname === '/api/workspace' && request.method() === 'PUT') {
       const body = request.postDataJSON() as { workspace: Workspace };
       persisted = structuredClone(body.workspace);
@@ -55,6 +63,7 @@ test('completes the primary compensation planning workflow and reloads saved dat
   await expect(page.getByText('Workforce Compass', { exact: true }).first()).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Compensation curve' })).toBeVisible();
   await expect(page.getByLabel('Employee compensation plotted against the selected market range and team median curve')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Workforce planning center' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Add employee' }).first().click();
   await expect(page.getByRole('heading', { name: 'Add employee' })).toBeVisible();
@@ -63,8 +72,12 @@ test('completes the primary compensation planning workflow and reloads saved dat
   await page.getByLabel('Employee career level').click();
   await page.getByRole('option', { name: 'L3' }).click();
   await page.getByLabel('Annual base salary').fill('137500');
+  await page.getByLabel('Annual bonus').fill('12500');
+  await page.getByLabel('Location').fill('Chicago, IL');
+  await page.getByLabel('Start date').fill('2024-06-15');
   await page.getByRole('button', { name: 'Save employee' }).click();
   await expect(page.getByRole('button', { name: 'View Taylor Morgan' })).toBeVisible();
+  expect(persisted.employees.find((employee) => employee.name === 'Taylor Morgan')).toMatchObject({ annualBonus: 12500, location: 'Chicago, IL', startDate: '2024-06-15' });
 
   await page.getByRole('button', { name: 'View Taylor Morgan' }).click();
   const employeeDetail = page.getByRole('dialog', { name: 'Taylor Morgan' });

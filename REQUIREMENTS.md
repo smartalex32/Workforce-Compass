@@ -167,28 +167,28 @@ Status values: **Implemented** means the requirement is complete; **Partial** me
 | R-ACC-18 | Missing required inputs produce clear “Not available” states. | Implemented | [#9](https://github.com/smartalex32/Workforce-Compass/issues/9) |
 | R-ACC-19 | All primary functionality is available without editing source or configuration files. | Implemented | [#9](https://github.com/smartalex32/Workforce-Compass/issues/9) |
 
-## Explicitly deferred opportunities
+## Post-MVP planning capabilities
 
-All items below are **Deferred** and tracked in [#10](https://github.com/smartalex32/Workforce-Compass/issues/10):
+The capabilities tracked in [#10](https://github.com/smartalex32/Workforce-Compass/issues/10) use vendor-neutral contracts and conservative decision-support semantics. External schedulers/connectors own vendor credentials. Signals and suggestions are explainable review prompts, not employment decisions.
 
-| ID | Requirement |
-|---|---|
-| R-FUT-01 | CSV employee import/export |
-| R-FUT-02 | CSV market-data import/export |
-| R-FUT-03 | HRIS integration |
-| R-FUT-04 | Compensation-survey APIs and automatic market retrieval |
-| R-FUT-05 | Multiple market datasets overlaid simultaneously |
-| R-FUT-06 | Historical compensation snapshots and salary-change history |
-| R-FUT-07 | Bonus, equity, benefits, and total compensation |
-| R-FUT-08 | Geographic cost-of-labor adjustments |
-| R-FUT-09 | Employee tenure |
-| R-FUT-10 | Organization, team, and manager hierarchy |
-| R-FUT-11 | Scenario planning and budget modeling |
-| R-FUT-12 | Productivity-over-time replacement curves |
-| R-FUT-13 | Historical time-to-hire analysis |
-| R-FUT-14 | Granular authentication roles and permissions |
-| R-FUT-15 | Audit history |
-| R-FUT-16 | Advanced statistical outlier detection |
-| R-FUT-17 | Performance analysis |
-| R-FUT-18 | Turnover prediction or “flight risk” scoring |
-| R-FUT-19 | Automated compensation, termination, or hiring recommendations |
+| ID | Requirement | Status | Implementation |
+|---|---|---|---|
+| R-FUT-01 | CSV employee import/export | Implemented | Quoted CSV round trip with row-level validation in the planning center and domain library. |
+| R-FUT-02 | CSV market-data import/export | Implemented | P25/P50/P75 CSV round trip preserves percentile validation. |
+| R-FUT-03 | HRIS integration | Implemented | Authenticated, role-checked HRIS sync contract merges normalized employees by employee number or ID. |
+| R-FUT-04 | Compensation-survey APIs and automatic market retrieval | Implemented | Authenticated survey sync contract validates and atomically persists connector-retrieved market rows. |
+| R-FUT-05 | Multiple market datasets overlaid simultaneously | Implemented | Planning center loads and compares all datasets in the active labor market without changing the selected dataset. |
+| R-FUT-06 | Historical compensation snapshots and salary-change history | Implemented | Workspace saves create snapshots; changed salaries retain prior/new values and timestamps. |
+| R-FUT-07 | Bonus, equity, benefits, and total compensation | Implemented | Optional components persist per employee and roll up to total compensation. |
+| R-FUT-08 | Geographic cost-of-labor adjustments | Implemented | Validated location factors and deterministic market-range adjustment model. |
+| R-FUT-09 | Employee tenure | Implemented | Optional start dates produce as-of tenure while invalid/future dates remain unavailable. |
+| R-FUT-10 | Organization, team, and manager hierarchy | Implemented | Employee team and manager relationships persist and appear in the planning center. |
+| R-FUT-11 | Scenario planning and budget modeling | Implemented | Saved proposed-salary scenarios report annual cost, remaining budget, and invalid references without applying changes. |
+| R-FUT-12 | Productivity-over-time replacement curves | Implemented | Validated 0–1 curves use deterministic linear interpolation across configured days. |
+| R-FUT-13 | Historical time-to-hire analysis | Implemented | Valid completed hiring observations produce per-level median days. |
+| R-FUT-14 | Granular authentication roles and permissions | Implemented | Organization members have viewer, analyst, or admin roles; write and membership boundaries are enforced server-side. |
+| R-FUT-15 | Audit history | Implemented | Workspace, planning, integration, and reassignment writes create actor-attributed audit events. |
+| R-FUT-16 | Advanced statistical outlier detection | Implemented | Sample-gated Tukey IQR fences identify observations without labeling compensation correctness. |
+| R-FUT-17 | Performance analysis | Implemented | Sample-gated descriptive correlation uses recorded performance and total compensation; no causal claim is made. |
+| R-FUT-18 | Turnover prediction or “flight risk” scoring | Implemented | Explainable weighted retention-review signal explicitly states that it is not a departure probability. |
+| R-FUT-19 | Automated compensation, termination, or hiring recommendations | Implemented | Automated review suggestions expose rationale and require human review; the system intentionally never makes termination, hiring, or pay decisions. |

@@ -32,6 +32,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EmployeeDialog, WorkspaceDialog } from '@/components/management-dialogs';
 import { EmployeeDirectory } from '@/components/employee-directory';
+import { PlanningCenter } from '@/components/planning-center';
 import type { Employee, Workspace } from '@/lib/domain';
 import type {
   WorkspaceContexts,
@@ -1270,6 +1271,9 @@ export function WorkforceExplorer({
           <button onClick={() => navigateTo('employees')}>
             <Users /> Employees
           </button>
+          <button onClick={() => navigateTo('planning')}>
+            <Sparkles /> Planning center
+          </button>
           <button disabled={editingDisabled} onClick={() => setWorkspaceDialogOpen(true)}>
             <Database /> Data & assumptions
           </button>
@@ -1493,6 +1497,14 @@ export function WorkforceExplorer({
         onAdd={startAddEmployee}
       />
       </section>
+
+      <PlanningCenter
+        key={`planning-${workspace.organization.id}`}
+        workspace={workspace}
+        contexts={contexts}
+        disabled={editingDisabled}
+        onSave={persistWorkspace}
+      />
 
       <EmployeeDetail
         workspace={workspace}

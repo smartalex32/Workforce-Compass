@@ -2,6 +2,7 @@ import { env } from 'cloudflare:workers';
 import { authorizeApiRequest } from '@/lib/api-auth';
 import type { Employee } from '@/lib/domain';
 import { reassignEmployee } from '@/lib/workspace-repository';
+import { canEditPlanning, loadPlanningState, planningActor, planningRoleFor } from '@/lib/planning-repository';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value));
@@ -17,7 +18,13 @@ function isEmployee(value: unknown): value is Employee {
       typeof value.levelId === 'string' &&
       typeof value.salary === 'number' &&
       Number.isFinite(value.salary) &&
+      (value.employeeNumber === undefined || typeof value.employeeNumber === 'string') &&
       (value.title === undefined || typeof value.title === 'string') &&
+      [value.annualBonus, value.annualEquity, value.annualBenefits, value.performanceRating].every((item) => item === undefined || (typeof item === 'number' && Number.isFinite(item))) &&
+      (value.location === undefined || typeof value.location === 'string') &&
+      (value.startDate === undefined || typeof value.startDate === 'string') &&
+      (value.team === undefined || typeof value.team === 'string') &&
+      (value.managerId === undefined || typeof value.managerId === 'string') &&
       (value.notes === undefined || typeof value.notes === 'string'),
   );
 }
@@ -50,12 +57,21 @@ export async function POST(request: Request) {
     !input.employee.disciplineId.trim() ||
     !input.employee.careerLadderId.trim() ||
     !input.employee.levelId.trim() ||
-    input.employee.salary <= 0
+    input.employee.salary <= 0 ||
+    [input.employee.annualBonus, input.employee.annualEquity, input.employee.annualBenefits].some((value) => value !== undefined && value < 0) ||
+    (input.employee.performanceRating !== undefined && (input.employee.performanceRating < 0 || input.employee.performanceRating > 5)) ||
+    (input.employee.startDate !== undefined && (!/^\d{4}-\d{2}-\d{2}$/.test(input.employee.startDate) || !Number.isFinite(new Date(`${input.employee.startDate}T00:00:00Z`).getTime()) || new Date(`${input.employee.startDate}T00:00:00Z`).toISOString().slice(0, 10) !== input.employee.startDate)) ||
+    input.employee.managerId === input.employee.id
   ) {
     return Response.json(
       { error: 'A complete employee reassignment is required.' },
       { status: 400 },
     );
+  }
+
+  const planning = await loadPlanningState(env.DB, input.organizationId);
+  if (!canEditPlanning(planningRoleFor(planning, planningActor(request, env.WORKFORCE_COMPASS_TRUSTED_USER_HEADER)))) {
+    return Response.json({ error: 'Analyst or admin access is required.' }, { status: 403 });
   }
 
   const employee = { ...input.employee, name: input.employee.name.trim() };
@@ -64,6 +80,7 @@ export async function POST(request: Request) {
     sourceDisciplineId: input.sourceDisciplineId,
     sourceCareerLadderId: input.sourceCareerLadderId,
     employee,
+    actor: planningActor(request, env.WORKFORCE_COMPASS_TRUSTED_USER_HEADER),
   });
 
   if (!moved) {

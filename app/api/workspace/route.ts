@@ -2,6 +2,7 @@ import { env } from 'cloudflare:workers';
 import type { Workspace } from '@/lib/domain';
 import { validateMarketPoint } from '@/lib/domain';
 import { authorizeApiRequest } from '@/lib/api-auth';
+import { canEditPlanning, loadPlanningState, planningActor, planningRoleFor } from '@/lib/planning-repository';
 import {
   loadWorkspace,
   saveWorkspace,
@@ -23,6 +24,30 @@ function isOptionalString(value: unknown) {
 
 function isNullableNumber(value: unknown) {
   return value === null || (typeof value === 'number' && Number.isFinite(value));
+}
+
+function isOptionalNumber(value: unknown) {
+  return value === undefined || (typeof value === 'number' && Number.isFinite(value));
+}
+
+function isIsoDate(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
+function hasManagerCycle(employees: Workspace['employees']) {
+  const managerByEmployee = new Map(employees.map((employee) => [employee.id, employee.managerId]));
+  return employees.some((employee) => {
+    const visited = new Set<string>();
+    let current: string | undefined = employee.id;
+    while (current && managerByEmployee.has(current)) {
+      if (visited.has(current)) return true;
+      visited.add(current);
+      current = managerByEmployee.get(current);
+    }
+    return false;
+  });
 }
 
 function hasWorkspaceShape(value: unknown): value is Workspace {
@@ -84,7 +109,16 @@ function hasWorkspaceShape(value: unknown): value is Workspace {
           typeof employee.levelId === 'string' &&
           typeof employee.salary === 'number' &&
           Number.isFinite(employee.salary) &&
+          isOptionalString(employee.employeeNumber) &&
           isOptionalString(employee.title) &&
+          isOptionalNumber(employee.annualBonus) &&
+          isOptionalNumber(employee.annualEquity) &&
+          isOptionalNumber(employee.annualBenefits) &&
+          isOptionalString(employee.location) &&
+          isOptionalString(employee.startDate) &&
+          isOptionalString(employee.team) &&
+          isOptionalString(employee.managerId) &&
+          isOptionalNumber(employee.performanceRating) &&
           isOptionalString(employee.notes),
       ) &&
       Array.isArray(assumptions) &&
@@ -128,6 +162,12 @@ export async function GET(request: Request) {
       { status: 404 },
     );
   }
+  if (workspace) {
+    const planning = await loadPlanningState(env.DB, workspace.organization.id);
+    if (!planningRoleFor(planning, planningActor(request, env.WORKFORCE_COMPASS_TRUSTED_USER_HEADER))) {
+      return Response.json({ error: 'This identity is not a workspace member.' }, { status: 403 });
+    }
+  }
   return Response.json({ workspace });
 }
 
@@ -142,6 +182,10 @@ export async function PUT(request: Request) {
   }
   const workspace = input.workspace;
   if (!hasWorkspaceShape(workspace)) return badRequest('A complete workspace is required.');
+  const planning = await loadPlanningState(env.DB, workspace.organization.id);
+  if (!canEditPlanning(planningRoleFor(planning, planningActor(request, env.WORKFORCE_COMPASS_TRUSTED_USER_HEADER)))) {
+    return Response.json({ error: 'Analyst or admin access is required.' }, { status: 403 });
+  }
   const requiredEntities = [
     workspace.organization,
     workspace.laborMarket,
@@ -180,9 +224,20 @@ export async function PUT(request: Request) {
   if (workspace.employees.some((employee) => !employee.id.trim() || !employee.name.trim() || employee.disciplineId !== workspace.discipline.id || employee.careerLadderId !== workspace.ladder.id || !Number.isFinite(employee.salary) || employee.salary <= 0 || !workspace.levels.some((level) => level.id === employee.levelId))) {
     return badRequest('Each employee needs a name, positive salary, and valid level.');
   }
+  if (workspace.employees.some((employee) =>
+    [employee.annualBonus, employee.annualEquity, employee.annualBenefits].some((value) => value !== undefined && (!Number.isFinite(value) || value < 0)) ||
+    (employee.performanceRating !== undefined && (!Number.isFinite(employee.performanceRating) || employee.performanceRating < 0 || employee.performanceRating > 5)) ||
+    (employee.startDate !== undefined && !isIsoDate(employee.startDate)) ||
+    employee.managerId === employee.id
+  )) {
+    return badRequest('Employee planning fields must use non-negative compensation, a 0–5 performance rating, a valid start date, and a different manager.');
+  }
   if (new Set(workspace.employees.map((employee) => employee.id)).size !== workspace.employees.length) {
     return badRequest('Employee IDs must be unique.');
   }
+  if (hasManagerCycle(workspace.employees)) return badRequest('Employee manager relationships cannot contain a cycle.');
+  const employeeNumbers = workspace.employees.flatMap((employee) => employee.employeeNumber ? [employee.employeeNumber] : []);
+  if (new Set(employeeNumbers).size !== employeeNumbers.length) return badRequest('Employee numbers must be unique when provided.');
   const assumptionValues = workspace.assumptions.flatMap((assumption) => [
     assumption.timeToHireDays, assumption.rampDays, assumption.vacancyMultiplier,
     assumption.rampLossFactor, assumption.recruitingCost, assumption.interviewCost,
@@ -205,7 +260,7 @@ export async function PUT(request: Request) {
 
   const now = new Date().toISOString();
   try {
-    await saveWorkspace(env.DB, workspace, now);
+    await saveWorkspace(env.DB, workspace, now, planningActor(request, env.WORKFORCE_COMPASS_TRUSTED_USER_HEADER));
   } catch (error) {
     if (error instanceof WorkspaceConflictError) {
       return Response.json({ error: error.message }, { status: 409 });

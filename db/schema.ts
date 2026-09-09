@@ -62,6 +62,7 @@ export const marketCompensation = sqliteTable('market_compensation', {
 
 export const employees = sqliteTable('employees', {
   id: text('id').primaryKey(),
+  employeeNumber: text('employee_number'),
   organizationId: text('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
   disciplineId: text('discipline_id').notNull().references(() => disciplines.id, { onDelete: 'cascade' }),
   careerLadderId: text('career_ladder_id').notNull().references(() => careerLadders.id, { onDelete: 'cascade' }),
@@ -69,8 +70,49 @@ export const employees = sqliteTable('employees', {
   name: text('name').notNull(),
   title: text('title'),
   baseSalary: real('base_salary').notNull(),
+  annualBonus: real('annual_bonus'),
+  annualEquity: real('annual_equity'),
+  annualBenefits: real('annual_benefits'),
+  location: text('location'),
+  startDate: text('start_date'),
+  team: text('team'),
+  managerId: text('manager_id'),
+  performanceRating: real('performance_rating'),
   notes: text('notes'),
 }, (table) => [index('idx_employees_analysis_scope').on(table.organizationId, table.disciplineId, table.careerLadderId, table.levelId)]);
+
+export const planningProfiles = sqliteTable('planning_profiles', {
+  organizationId: text('organization_id').primaryKey().references(() => organizations.id, { onDelete: 'cascade' }),
+  version: integer('version').notNull().default(1),
+  stateJson: text('state_json').notNull(),
+  updatedAt: text('updated_at').notNull(),
+});
+
+export const compensationSnapshots = sqliteTable('compensation_snapshots', {
+  id: text('id').primaryKey(),
+  organizationId: text('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+  capturedAt: text('captured_at').notNull(),
+  dataJson: text('data_json').notNull(),
+}, (table) => [index('idx_compensation_snapshots_org_date').on(table.organizationId, table.capturedAt)]);
+
+export const salaryHistory = sqliteTable('salary_history', {
+  id: text('id').primaryKey(),
+  employeeId: text('employee_id').notNull(),
+  previousSalary: real('previous_salary').notNull(),
+  newSalary: real('new_salary').notNull(),
+  effectiveAt: text('effective_at').notNull(),
+}, (table) => [index('idx_salary_history_employee_date').on(table.employeeId, table.effectiveAt)]);
+
+export const auditEvents = sqliteTable('audit_events', {
+  id: text('id').primaryKey(),
+  organizationId: text('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+  actor: text('actor').notNull(),
+  action: text('action').notNull(),
+  entityType: text('entity_type').notNull(),
+  entityId: text('entity_id'),
+  metadataJson: text('metadata_json').notNull().default('{}'),
+  createdAt: text('created_at').notNull(),
+}, (table) => [index('idx_audit_events_org_date').on(table.organizationId, table.createdAt)]);
 
 export const hiringAssumptions = sqliteTable('hiring_assumptions', {
   id: text('id').primaryKey(),

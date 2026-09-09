@@ -51,4 +51,8 @@ This roadmap translates the PRD and GUI reference in [Issue #1](https://github.c
 
 ## Post-MVP
 
-- [ ] CSV workflows, integrations, history, total compensation, geography, tenure, organizational hierarchy, scenarios, budgets, richer productivity curves, roles, audit history, and advanced statistics — [#10](https://github.com/smartalex32/Workforce-Compass/issues/10)
+- [x] CSV workflows, vendor-neutral integrations, history, total compensation, geography, tenure, organizational hierarchy, scenarios, budgets, richer productivity curves, roles, audit history, and advanced statistics — [#10](https://github.com/smartalex32/Workforce-Compass/issues/10)
+  - Employee and market CSV round trips plus authenticated HRIS/survey sync contracts
+  - Compensation snapshots, salary history, audit events, and viewer/analyst/admin roles
+  - Total compensation, geography, tenure, hierarchy, scenarios, budgets, productivity curves, and historical hiring analysis
+  - Sample-gated outlier/performance statistics and transparent human-review signals; no automated employment decisions

@@ -14,12 +14,21 @@ export type MarketPoint = {
 
 export type Employee = {
   id: string;
+  employeeNumber?: string;
   name: string;
   title?: string;
   disciplineId: string;
   careerLadderId: string;
   levelId: string;
   salary: number;
+  annualBonus?: number;
+  annualEquity?: number;
+  annualBenefits?: number;
+  location?: string;
+  startDate?: string;
+  team?: string;
+  managerId?: string;
+  performanceRating?: number;
   notes?: string;
 };
 
@@ -65,6 +74,23 @@ export type ReplacementCost = {
   rampCost: number;
   total: number;
 };
+
+export function totalCompensation(employee: Employee): number {
+  return employee.salary +
+    (employee.annualBonus ?? 0) +
+    (employee.annualEquity ?? 0) +
+    (employee.annualBenefits ?? 0);
+}
+
+export function employeeTenureYears(
+  employee: Employee,
+  asOf = new Date(),
+): number | null {
+  if (!employee.startDate) return null;
+  const start = new Date(`${employee.startDate.slice(0, 10)}T00:00:00Z`);
+  if (!Number.isFinite(start.getTime()) || start > asOf) return null;
+  return (asOf.getTime() - start.getTime()) / (365.2425 * 24 * 60 * 60 * 1000);
+}
 
 export type LevelReplacementSummary = ReplacementCost & {
   levelId: string;

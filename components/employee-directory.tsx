@@ -1,12 +1,14 @@
 'use client';
 
+/* oxlint-disable jsx-a11y/no-noninteractive-tabindex -- keyboard focus is required for the bounded scroll region */
+
 import { useState } from 'react';
 import { Pencil, Plus, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { Employee, Workspace } from '@/lib/domain';
-import { employeeMetrics } from '@/lib/domain';
+import { employeeMetrics, totalCompensation } from '@/lib/domain';
 import { filterEmployees } from '@/lib/employee-directory';
 
 export function EmployeeDirectory({ workspace, disabled, onSelect, onEdit, onAdd }: {
@@ -59,7 +61,7 @@ export function EmployeeDirectory({ workspace, disabled, onSelect, onEdit, onAdd
     <div className="employee-directory-scroll" role="region" aria-label="Employee observations table" tabIndex={0}>
       <table>
         <caption className="sr-only">Employee salary observations with calculated market and internal team comparisons</caption>
-        <thead><tr><th scope="col">Employee</th><th scope="col">Level</th><th scope="col">Base salary</th><th scope="col">Market gap</th><th scope="col">Team gap</th><th scope="col">Actions</th></tr></thead>
+        <thead><tr><th scope="col">Employee</th><th scope="col">Level</th><th scope="col">Base salary</th><th scope="col">Total compensation</th><th scope="col">Market gap</th><th scope="col">Team gap</th><th scope="col">Actions</th></tr></thead>
         <tbody>
           {employees.map((employee) => {
             const metrics = employeeMetrics(workspace, employee);
@@ -69,12 +71,13 @@ export function EmployeeDirectory({ workspace, disabled, onSelect, onEdit, onAdd
               <th scope="row"><button className="employee-name-button" disabled={disabled} onClick={() => onSelect(employee)} aria-label={`View ${employee.name}`}>{employee.name}</button><small>{employee.title || 'No title'}</small></th>
               <td>{level?.name ?? 'Not available'}</td>
               <td>{currency.format(employee.salary)}</td>
+              <td>{currency.format(totalCompensation(employee))}<small>base + bonus + equity + benefits</small></td>
               <td>{metrics.marketGap ? percent(metrics.marketGap.percent) : 'Not available'}<small>vs. market median</small></td>
               <td>{metrics.teamSampleSize < 2 ? 'Insufficient data' : metrics.teamGap ? percent(metrics.teamGap.percent) : 'Not available'}<small>{metrics.teamSampleSize} at this level</small></td>
               <td><Button variant="ghost" size="sm" disabled={disabled} onClick={() => onEdit(employee)} aria-label={`Edit ${employee.name}`}><Pencil /> Edit</Button></td>
             </tr>;
           })}
-          {!employees.length && <tr><td colSpan={6} className="employee-directory-empty">
+          {!employees.length && <tr><td colSpan={7} className="employee-directory-empty">
             <strong>{workspace.employees.length ? 'No matching employees' : 'No employees in this career ladder'}</strong>
             <p>{workspace.employees.length ? 'Try another name, title, or level, or clear the filters.' : 'Add an employee to compare their salary with market data and your team.'}</p>
             {workspace.employees.length > 0 && <Button variant="outline" onClick={clearFilters}>Clear filters</Button>}
