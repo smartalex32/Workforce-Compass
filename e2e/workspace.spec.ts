@@ -65,6 +65,26 @@ test('completes the primary compensation planning workflow and reloads saved dat
   await expect(page.getByLabel('Employee compensation plotted against the selected market range and team median curve')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Workforce planning center' })).toBeVisible();
 
+  const fixedLayoutBeforeScroll = await page.evaluate(() => ({
+    documentScrollTop: document.scrollingElement?.scrollTop ?? 0,
+    headerTop: document.querySelector('.app-header')?.getBoundingClientRect().top,
+    sidebarTop: document.querySelector('.workspace-sidebar')?.getBoundingClientRect().top,
+  }));
+  await page.locator('.app-main-scroll').evaluate((element) => element.scrollTo({ top: 500 }));
+  const fixedLayoutAfterScroll = await page.evaluate(() => ({
+    documentScrollTop: document.scrollingElement?.scrollTop ?? 0,
+    headerTop: document.querySelector('.app-header')?.getBoundingClientRect().top,
+    sidebarTop: document.querySelector('.workspace-sidebar')?.getBoundingClientRect().top,
+    mainScrollTop: document.querySelector('.app-main-scroll')?.scrollTop ?? 0,
+  }));
+  expect(fixedLayoutAfterScroll).toMatchObject({
+    documentScrollTop: fixedLayoutBeforeScroll.documentScrollTop,
+    headerTop: fixedLayoutBeforeScroll.headerTop,
+    sidebarTop: fixedLayoutBeforeScroll.sidebarTop,
+  });
+  expect(fixedLayoutAfterScroll.mainScrollTop).toBeGreaterThan(0);
+  await page.locator('.app-main-scroll').evaluate((element) => element.scrollTo({ top: 0 }));
+
   await page.getByRole('button', { name: 'Add employee' }).first().click();
   await expect(page.getByRole('heading', { name: 'Add employee' })).toBeVisible();
   await page.getByLabel('Name').fill('Taylor Morgan');
