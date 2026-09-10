@@ -1324,7 +1324,7 @@ export function WorkforceExplorer({
           <div className="filter-label">
             <span>Organization</span>
             <Select value={workspace.organization.id} disabled={saveState === 'loading' || saveState === 'saving'} onValueChange={(organizationId) => void loadSelection({ organizationId: String(organizationId) })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger><SelectValue>{workspace.organization.name}</SelectValue></SelectTrigger>
               <SelectContent>
                 {contextOptions.organizations.map((organization) => <SelectItem key={organization.id} value={organization.id}>{organization.name}</SelectItem>)}
               </SelectContent>
@@ -1333,7 +1333,7 @@ export function WorkforceExplorer({
           <div className="filter-label">
             <span>Labor market</span>
             <Select value={workspace.laborMarket.id} disabled={saveState === 'loading' || saveState === 'saving'} onValueChange={(laborMarketId) => void loadSelection({ organizationId: workspace.organization.id, laborMarketId: String(laborMarketId), disciplineId: workspace.discipline.id, ladderId: workspace.ladder.id })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger><SelectValue>{workspace.laborMarket.name}</SelectValue></SelectTrigger>
               <SelectContent>
                 {contextOptions.laborMarkets.map((market) => <SelectItem key={market.id} value={market.id}>{market.name}</SelectItem>)}
               </SelectContent>
@@ -1342,7 +1342,7 @@ export function WorkforceExplorer({
           <div className="filter-label">
             <span>Discipline</span>
             <Select value={workspace.discipline.id} disabled={saveState === 'loading' || saveState === 'saving'} onValueChange={(disciplineId) => void loadSelection({ organizationId: workspace.organization.id, laborMarketId: workspace.laborMarket.id, disciplineId: String(disciplineId), datasetId: workspace.dataset.id })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger><SelectValue>{workspace.discipline.name}</SelectValue></SelectTrigger>
               <SelectContent>
                 {contextOptions.disciplines.map((discipline) => <SelectItem key={discipline.id} value={discipline.id}>{discipline.name}</SelectItem>)}
               </SelectContent>
@@ -1351,7 +1351,7 @@ export function WorkforceExplorer({
           <div className="filter-label">
             <span>Career ladder</span>
             <Select value={workspace.ladder.id} disabled={saveState === 'loading' || saveState === 'saving'} onValueChange={(ladderId) => void loadSelection({ organizationId: workspace.organization.id, laborMarketId: workspace.laborMarket.id, disciplineId: workspace.discipline.id, ladderId: String(ladderId), datasetId: workspace.dataset.id })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger><SelectValue>{workspace.ladder.name}</SelectValue></SelectTrigger>
               <SelectContent>
                 {contextOptions.ladders.map((ladder) => <SelectItem key={ladder.id} value={ladder.id}>{ladder.name}</SelectItem>)}
               </SelectContent>
@@ -1360,7 +1360,7 @@ export function WorkforceExplorer({
           <div className="filter-label">
             <span>Market dataset</span>
             <Select value={workspace.dataset.id} disabled={saveState === 'loading' || saveState === 'saving'} onValueChange={(datasetId) => void loadSelection({ organizationId: workspace.organization.id, laborMarketId: workspace.laborMarket.id, disciplineId: workspace.discipline.id, ladderId: workspace.ladder.id, datasetId: String(datasetId) })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger><SelectValue>{workspace.dataset.name}{workspace.dataset.active ? '' : ' · Inactive'}</SelectValue></SelectTrigger>
               <SelectContent>
                 {contextOptions.datasets.map((dataset) => <SelectItem key={dataset.id} value={dataset.id}>{dataset.name}{dataset.active ? '' : ' · Inactive'}</SelectItem>)}
               </SelectContent>

@@ -65,6 +65,12 @@ test('completes the primary compensation planning workflow and reloads saved dat
   await expect(page.getByLabel('Employee compensation plotted against the selected market range and team median curve')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Workforce planning center' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Add employee' }).first()).toBeEnabled();
+  const contextSelects = page.getByRole('region', { name: 'Analysis filters' }).getByRole('combobox');
+  await expect(contextSelects.nth(0)).toContainText('Northstar Systems');
+  await expect(contextSelects.nth(1)).toContainText('Huntsville, AL');
+  await expect(contextSelects.nth(2)).toContainText('Software Engineering');
+  await expect(contextSelects.nth(3)).toContainText('Individual Contributor');
+  await expect(contextSelects.nth(4)).toContainText('2026 Market Survey');
 
   const fixedLayoutBeforeScroll = await page.evaluate(() => ({
     documentScrollTop: document.scrollingElement?.scrollTop ?? 0,
@@ -100,6 +106,7 @@ test('completes the primary compensation planning workflow and reloads saved dat
 
   await page.getByRole('button', { name: 'Add employee' }).first().click();
   await expect(page.getByRole('heading', { name: 'Add employee' })).toBeVisible();
+  await expect(page.getByLabel('Employee career level')).toContainText('L1');
   await page.getByLabel('Name').fill('Taylor Morgan');
   await page.getByLabel('Title').fill('Software Engineer');
   await page.getByLabel('Employee career level').click();
@@ -119,6 +126,8 @@ test('completes the primary compensation planning workflow and reloads saved dat
   await page.keyboard.press('Escape');
 
   await page.getByRole('button', { name: 'Edit Maya Chen' }).click();
+  await expect(page.getByLabel('Employee discipline')).toContainText('Software Engineering');
+  await expect(page.getByLabel('Employee career ladder')).toContainText('Individual Contributor');
   await page.getByLabel('Employee discipline').click();
   await page.getByRole('option', { name: 'Product Management' }).click();
   await page.getByRole('button', { name: 'Save employee' }).click();
