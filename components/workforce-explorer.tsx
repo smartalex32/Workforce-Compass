@@ -49,6 +49,7 @@ import {
 } from '@/lib/domain';
 
 type ViewMode = 'curve' | 'replacement' | 'matrix';
+type AppPage = 'analysis' | 'employees' | 'planning';
 type Visibility = {
   band: boolean;
   market: boolean;
@@ -904,6 +905,7 @@ export function WorkforceExplorer({
 }) {
   const [workspace, setWorkspace] = useState(initialWorkspace);
   const [view, setView] = useState<ViewMode>('curve');
+  const [page, setPage] = useState<AppPage>('analysis');
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(
     null,
   );
@@ -942,17 +944,11 @@ export function WorkforceExplorer({
     setSelectedEmployee(employee);
     setDetailOpen(true);
   };
-  const navigateTo = (sectionId: string, nextView?: ViewMode) => {
+  const openPage = (nextPage: AppPage, nextView?: ViewMode) => {
     if (nextView) setView(nextView);
-    const target = document.getElementById(sectionId);
-    const scrollRegion = target?.closest<HTMLElement>('.app-main-scroll');
-    if (!target || !scrollRegion) return;
-
-    const top =
-      scrollRegion.scrollTop +
-      target.getBoundingClientRect().top -
-      scrollRegion.getBoundingClientRect().top;
-    scrollRegion.scrollTop = top;
+    setPage(nextPage);
+    const scrollRegion = document.querySelector<HTMLElement>('.app-main-scroll');
+    if (scrollRegion) scrollRegion.scrollTop = 0;
   };
 
   const contextOptions = useMemo(() => {
@@ -1261,20 +1257,20 @@ export function WorkforceExplorer({
             <span>Compensation. Context. Clarity.</span>
           </div>
         </div>
-        <nav className="sidebar-nav" aria-label="Analysis views">
-          <button className={view === 'curve' ? 'active' : ''} onClick={() => navigateTo('analysis', 'curve')}>
+        <nav className="sidebar-nav" aria-label="Application pages">
+          <button className={page === 'analysis' && view === 'curve' ? 'active' : ''} aria-current={page === 'analysis' && view === 'curve' ? 'page' : undefined} onClick={() => openPage('analysis', 'curve')}>
             <BarChart3 /> Compensation curve
           </button>
-          <button className={view === 'replacement' ? 'active' : ''} onClick={() => navigateTo('analysis', 'replacement')}>
+          <button className={page === 'analysis' && view === 'replacement' ? 'active' : ''} aria-current={page === 'analysis' && view === 'replacement' ? 'page' : undefined} onClick={() => openPage('analysis', 'replacement')}>
             <CircleDollarSign /> Replacement exposure
           </button>
-          <button className={view === 'matrix' ? 'active' : ''} onClick={() => navigateTo('analysis', 'matrix')}>
+          <button className={page === 'analysis' && view === 'matrix' ? 'active' : ''} aria-current={page === 'analysis' && view === 'matrix' ? 'page' : undefined} onClick={() => openPage('analysis', 'matrix')}>
             <ArrowUpRight /> Market gap × cost
           </button>
-          <button onClick={() => navigateTo('employees')}>
+          <button className={page === 'employees' ? 'active' : ''} aria-current={page === 'employees' ? 'page' : undefined} onClick={() => openPage('employees')}>
             <Users /> Employees
           </button>
-          <button onClick={() => navigateTo('planning')}>
+          <button className={page === 'planning' ? 'active' : ''} aria-current={page === 'planning' ? 'page' : undefined} onClick={() => openPage('planning')}>
             <Sparkles /> Planning center
           </button>
           <button disabled={editingDisabled} onClick={() => setWorkspaceDialogOpen(true)}>
@@ -1315,6 +1311,7 @@ export function WorkforceExplorer({
       </header>
 
       <div className="app-main-scroll">
+      {page === 'analysis' && <>
       <section id="workspace" className="workspace-toolbar" aria-label="Analysis filters">
         <div className="context-copy">
           <p className="eyebrow">Compensation workspace</p>
@@ -1473,7 +1470,7 @@ export function WorkforceExplorer({
       </section>
 
       <div className="view-switcher-wrap">
-        <Tabs value={view} onValueChange={(value) => setView(value as ViewMode)}>
+        <Tabs value={view} onValueChange={(value) => openPage('analysis', value as ViewMode)}>
           <TabsList className="view-switcher">
             <TabsTrigger value="curve">
               <BarChart3 /> Compensation curve
@@ -1490,8 +1487,9 @@ export function WorkforceExplorer({
           <Settings2 /> Configure workspace
         </Button>
       </div>
+      </>}
 
-      <section id="employees" className="employee-directory-section" aria-label="Employees">
+      {page === 'employees' && <section id="employees" className="employee-directory-section" aria-label="Employees">
       <EmployeeDirectory
         key={JSON.stringify([workspace.organization.id, workspace.discipline.id, workspace.ladder.id])}
         workspace={workspace}
@@ -1500,15 +1498,15 @@ export function WorkforceExplorer({
         onEdit={startEditEmployee}
         onAdd={startAddEmployee}
       />
-      </section>
+      </section>}
 
-      <PlanningCenter
+      {page === 'planning' && <PlanningCenter
         key={`planning-${workspace.organization.id}`}
         workspace={workspace}
         contexts={contexts}
         disabled={editingDisabled}
         onSave={persistWorkspace}
-      />
+      />}
 
       <EmployeeDetail
         workspace={workspace}

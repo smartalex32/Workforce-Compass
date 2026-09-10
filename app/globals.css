@@ -1106,7 +1106,7 @@
 .employee-directory .employee-directory-empty { padding: 2rem; text-align: center; }
 .employee-directory-empty p { margin: 0.5rem 0 1rem; }
 
-.planning-center { width: min(1440px, calc(100% - 4vw)); margin: 0 auto 2rem; padding: 1.25rem; border: 1px solid #dce4e7; border-radius: 18px; background: #f8fbfb; color: #243a44; scroll-margin-top: 72px; }
+.planning-center { width: min(1440px, calc(100% - 4vw)); margin: 1.25rem auto 2rem; padding: 1.25rem; border: 1px solid #dce4e7; border-radius: 18px; background: #f8fbfb; color: #243a44; }
 .planning-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
 .planning-heading h2 { margin: 0.15rem 0; font-size: 1.125rem; }
 .planning-heading p { margin: 0; color: #60747d; font-size: 0.8rem; }

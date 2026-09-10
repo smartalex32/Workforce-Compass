@@ -63,7 +63,8 @@ test('completes the primary compensation planning workflow and reloads saved dat
   await expect(page.getByText('Workforce Compass', { exact: true }).first()).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Compensation curve' })).toBeVisible();
   await expect(page.getByLabel('Employee compensation plotted against the selected market range and team median curve')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Workforce planning center' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Workforce planning center' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Employees', exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Add employee' }).first()).toBeEnabled();
   const contextSelects = page.getByRole('region', { name: 'Analysis filters' }).getByRole('combobox');
   await expect(contextSelects.nth(0)).toContainText('Northstar Systems');
@@ -99,10 +100,14 @@ test('completes the primary compensation planning workflow and reloads saved dat
     mainScrollTop: document.querySelector('.app-main-scroll')?.scrollTop ?? 0,
   }))).toEqual({ documentScrollTop: 0, mainScrollTop: 0 });
 
-  await page.getByRole('navigation', { name: 'Analysis views' }).getByRole('button', { name: 'Employees' }).click();
-  await expect.poll(() => page.locator('.app-main-scroll').evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+  const appNavigation = page.getByRole('navigation', { name: 'Application pages' });
+  await page.locator('.app-main-scroll').evaluate((element) => element.scrollTo({ top: 500 }));
+  await appNavigation.getByRole('button', { name: 'Employees' }).click();
+  await expect(page.getByRole('heading', { name: 'Employees', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Compensation curve' })).toHaveCount(0);
+  await expect(appNavigation.getByRole('button', { name: 'Employees' })).toHaveAttribute('aria-current', 'page');
+  expect(await page.locator('.app-main-scroll').evaluate((element) => element.scrollTop)).toBe(0);
   expect(await page.evaluate(() => document.scrollingElement?.scrollTop ?? 0)).toBe(0);
-  await page.locator('.app-main-scroll').evaluate((element) => element.scrollTo({ top: 0 }));
 
   await page.getByRole('button', { name: 'Add employee' }).first().click();
   await expect(page.getByRole('heading', { name: 'Add employee' })).toBeVisible();
@@ -133,10 +138,17 @@ test('completes the primary compensation planning workflow and reloads saved dat
   await page.getByRole('button', { name: 'Save employee' }).click();
   await expect(page.getByRole('button', { name: 'View Maya Chen' })).toHaveCount(0);
 
-  await page.getByRole('tab', { name: 'Replacement exposure' }).click();
+  await appNavigation.getByRole('button', { name: 'Planning center' }).click();
+  await expect(page.getByRole('heading', { name: 'Workforce planning center' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Employees', exact: true })).toHaveCount(0);
+  expect(await page.locator('.app-main-scroll').evaluate((element) => element.scrollTop)).toBe(0);
+
+  await appNavigation.getByRole('button', { name: 'Replacement exposure' }).click();
   await expect(page.getByRole('heading', { name: 'Replacement exposure' })).toBeVisible();
-  await page.getByRole('tab', { name: 'Market gap × cost' }).click();
+  await page.locator('.app-main-scroll').evaluate((element) => element.scrollTo({ top: 500 }));
+  await appNavigation.getByRole('button', { name: 'Market gap × cost' }).click();
   await expect(page.getByRole('heading', { name: 'Where gaps and costs compound' })).toBeVisible();
+  expect(await page.locator('.app-main-scroll').evaluate((element) => element.scrollTop)).toBe(0);
 
   await page.getByRole('button', { name: 'Configure workspace' }).last().click();
   await page.getByLabel('Dataset status').click();
@@ -145,5 +157,7 @@ test('completes the primary compensation planning workflow and reloads saved dat
   expect(persisted.dataset.active).toBe(false);
 
   await page.reload();
+  await expect(page.getByRole('button', { name: 'Add employee' }).first()).toBeEnabled();
+  await appNavigation.getByRole('button', { name: 'Employees' }).click();
   await expect(page.getByRole('button', { name: 'View Taylor Morgan' })).toBeVisible();
 });
