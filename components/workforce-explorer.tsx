@@ -944,12 +944,15 @@ export function WorkforceExplorer({
   };
   const navigateTo = (sectionId: string, nextView?: ViewMode) => {
     if (nextView) setView(nextView);
-    requestAnimationFrame(() => {
-      document.getElementById(sectionId)?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start',
-      });
-    });
+    const target = document.getElementById(sectionId);
+    const scrollRegion = target?.closest<HTMLElement>('.app-main-scroll');
+    if (!target || !scrollRegion) return;
+
+    const top =
+      scrollRegion.scrollTop +
+      target.getBoundingClientRect().top -
+      scrollRegion.getBoundingClientRect().top;
+    scrollRegion.scrollTop = top;
   };
 
   const contextOptions = useMemo(() => {

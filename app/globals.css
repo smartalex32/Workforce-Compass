@@ -123,10 +123,16 @@
   }
   html {
     @apply font-sans;
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
     background: var(--background);
   }
   body {
     @apply bg-background text-foreground;
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
     min-width: 320px;
     font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
   }
@@ -169,6 +175,7 @@
   min-height: 0;
   height: 100%;
   overflow: hidden;
+  overscroll-behavior: none;
   display: flex;
   flex-direction: column;
   gap: 1.5rem;

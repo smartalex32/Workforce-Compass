@@ -64,6 +64,7 @@ test('completes the primary compensation planning workflow and reloads saved dat
   await expect(page.getByRole('heading', { name: 'Compensation curve' })).toBeVisible();
   await expect(page.getByLabel('Employee compensation plotted against the selected market range and team median curve')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Workforce planning center' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Add employee' }).first()).toBeEnabled();
 
   const fixedLayoutBeforeScroll = await page.evaluate(() => ({
     documentScrollTop: document.scrollingElement?.scrollTop ?? 0,
@@ -83,6 +84,18 @@ test('completes the primary compensation planning workflow and reloads saved dat
     sidebarTop: fixedLayoutBeforeScroll.sidebarTop,
   });
   expect(fixedLayoutAfterScroll.mainScrollTop).toBeGreaterThan(0);
+  await page.locator('.app-main-scroll').evaluate((element) => element.scrollTo({ top: 0 }));
+
+  await page.locator('.workspace-sidebar').hover();
+  await page.mouse.wheel(0, 500);
+  await expect.poll(() => page.evaluate(() => ({
+    documentScrollTop: document.scrollingElement?.scrollTop ?? 0,
+    mainScrollTop: document.querySelector('.app-main-scroll')?.scrollTop ?? 0,
+  }))).toEqual({ documentScrollTop: 0, mainScrollTop: 0 });
+
+  await page.getByRole('navigation', { name: 'Analysis views' }).getByRole('button', { name: 'Employees' }).click();
+  await expect.poll(() => page.locator('.app-main-scroll').evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+  expect(await page.evaluate(() => document.scrollingElement?.scrollTop ?? 0)).toBe(0);
   await page.locator('.app-main-scroll').evaluate((element) => element.scrollTo({ top: 0 }));
 
   await page.getByRole('button', { name: 'Add employee' }).first().click();
