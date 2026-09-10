@@ -39,6 +39,14 @@ import {
 } from '@/lib/context-management';
 import type { WorkspaceContexts } from '@/lib/workspace-repository';
 
+const contextCreationLabels: Record<ContextCreationKind, string> = {
+  organization: 'Organization',
+  laborMarket: 'Labor market',
+  discipline: 'Discipline',
+  ladder: 'Career ladder',
+  dataset: 'Market dataset',
+};
+
 function numericValue(value: string): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
@@ -165,7 +173,7 @@ export function EmployeeDialog({
                   const levelId = contexts.levels.find((level) => level.careerLadderId === careerLadderId)?.id ?? '';
                   setDraft({ ...draft, disciplineId, careerLadderId, levelId });
                 }}>
-                  <SelectTrigger className="dialog-select" aria-label="Employee discipline"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="dialog-select" aria-label="Employee discipline"><SelectValue>{disciplines.find((discipline) => discipline.id === draft.disciplineId)?.name ?? 'Select discipline'}</SelectValue></SelectTrigger>
                   <SelectContent>
                     {disciplines.map((discipline) => <SelectItem key={discipline.id} value={discipline.id}>{discipline.name}</SelectItem>)}
                   </SelectContent>
@@ -178,7 +186,7 @@ export function EmployeeDialog({
                   const levelId = contexts.levels.find((level) => level.careerLadderId === careerLadderId)?.id ?? '';
                   setDraft({ ...draft, careerLadderId, levelId });
                 }}>
-                  <SelectTrigger className="dialog-select" aria-label="Employee career ladder"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="dialog-select" aria-label="Employee career ladder"><SelectValue>{ladders.find((ladder) => ladder.id === draft.careerLadderId)?.name ?? 'Select career ladder'}</SelectValue></SelectTrigger>
                   <SelectContent>
                     {ladders.map((ladder) => <SelectItem key={ladder.id} value={ladder.id}>{ladder.name}</SelectItem>)}
                   </SelectContent>
@@ -187,7 +195,7 @@ export function EmployeeDialog({
               <label>
                 <span>Career level</span>
                 <Select value={draft.levelId} onValueChange={(value) => setDraft({ ...draft, levelId: String(value) })}>
-                  <SelectTrigger className="dialog-select" aria-label="Employee career level"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="dialog-select" aria-label="Employee career level"><SelectValue>{levels.find((level) => level.id === draft.levelId)?.name ?? 'Select career level'}</SelectValue></SelectTrigger>
                   <SelectContent>
                     {[...levels].sort((a, b) => a.order - b.order).map((level) => (
                       <SelectItem key={level.id} value={level.id}>{level.name}</SelectItem>
@@ -230,7 +238,7 @@ export function EmployeeDialog({
               <label>
                 <span>Manager <small>optional</small></span>
                 <Select value={draft.managerId ? `employee:${draft.managerId}` : 'none'} onValueChange={(value) => setDraft({ ...draft, managerId: value === 'none' ? undefined : String(value).slice(9) })}>
-                  <SelectTrigger className="dialog-select" aria-label="Employee manager"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="dialog-select" aria-label="Employee manager"><SelectValue>{draft.managerId ? workspace.employees.find((item) => item.id === draft.managerId)?.name ?? 'Select manager' : 'No manager'}</SelectValue></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">No manager</SelectItem>
                     {workspace.employees.filter((item) => item.id !== draft.id).map((item) => <SelectItem key={item.id} value={`employee:${item.id}`}>{item.name}</SelectItem>)}
@@ -449,7 +457,7 @@ export function WorkspaceDialog({
             <div className="context-create-row">
               <div><strong>Create another context</strong><p>Start a related scope, then review its names and levels before saving.</p></div>
               <Select value={creationKind} onValueChange={(value) => setCreationKind(value as ContextCreationKind)}>
-                <SelectTrigger className="dialog-select"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="dialog-select"><SelectValue>{contextCreationLabels[creationKind]}</SelectValue></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="organization">Organization</SelectItem>
                   <SelectItem value="laborMarket">Labor market</SelectItem>
@@ -467,7 +475,7 @@ export function WorkspaceDialog({
               <label><span>Career ladder</span><Input value={draft.ladder.name} onChange={(event) => setDraft({ ...draft, ladder: { ...draft.ladder, name: event.target.value } })} /></label>
               <label><span>Dataset name</span><Input value={draft.dataset.name} onChange={(event) => setDraft({ ...draft, dataset: { ...draft.dataset, name: event.target.value } })} /></label>
               <label><span>Effective date</span><Input type="date" value={draft.dataset.effectiveDate ?? ''} onChange={(event) => setDraft({ ...draft, dataset: { ...draft.dataset, effectiveDate: event.target.value } })} /></label>
-              <label><span>Dataset status</span><Select value={draft.dataset.active ? 'active' : 'inactive'} onValueChange={(value) => setDraft({ ...draft, dataset: { ...draft.dataset, active: value === 'active' } })}><SelectTrigger className="dialog-select" aria-label="Dataset status"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="active">Active</SelectItem><SelectItem value="inactive">Inactive</SelectItem></SelectContent></Select></label>
+              <label><span>Dataset status</span><Select value={draft.dataset.active ? 'active' : 'inactive'} onValueChange={(value) => setDraft({ ...draft, dataset: { ...draft.dataset, active: value === 'active' } })}><SelectTrigger className="dialog-select" aria-label="Dataset status"><SelectValue>{draft.dataset.active ? 'Active' : 'Inactive'}</SelectValue></SelectTrigger><SelectContent><SelectItem value="active">Active</SelectItem><SelectItem value="inactive">Inactive</SelectItem></SelectContent></Select></label>
               <label><span>Currency</span><Input maxLength={3} value={draft.organization.currency} onChange={(event) => setDraft({ ...draft, organization: { ...draft.organization, currency: event.target.value.toUpperCase() } })} placeholder="USD" /></label>
               <label><span>Dataset source <small>optional</small></span><Input value={draft.dataset.source ?? ''} onChange={(event) => setDraft({ ...draft, dataset: { ...draft.dataset, source: event.target.value } })} placeholder="Survey or estimate source" /></label>
               <label><span>Labor market description <small>optional</small></span><Input value={draft.laborMarket.description ?? ''} onChange={(event) => setDraft({ ...draft, laborMarket: { ...draft.laborMarket, description: event.target.value } })} /></label>

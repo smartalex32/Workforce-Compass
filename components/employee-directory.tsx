@@ -45,7 +45,7 @@ export function EmployeeDirectory({ workspace, disabled, onSelect, onEdit, onAdd
       <label>
         <span>Career level</span>
         <Select value={activeLevelId === null ? 'all' : `level:${activeLevelId}`} onValueChange={(value) => setLevelId(value === 'all' ? null : String(value).slice(6))}>
-          <SelectTrigger aria-label="Filter employees by career level"><SelectValue /></SelectTrigger>
+          <SelectTrigger aria-label="Filter employees by career level"><SelectValue>{activeLevelId === null ? 'All levels' : levels.find((level) => level.id === activeLevelId)?.name ?? 'All levels'}</SelectValue></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All levels</SelectItem>
             {levels.map((level) => <SelectItem key={level.id} value={`level:${level.id}`}>{level.name}</SelectItem>)}
