@@ -1,6 +1,6 @@
+import type { AppDatabase, DatabaseRow } from '@/db';
 import type { PlanningRole, PlanningState } from './workforce-planning';
 
-type D1Row = Record<string, string | number | null>;
 
 export type PlanningHistory = {
   snapshots: Array<{ id: string; capturedAt: string; employees: unknown[] }>;
@@ -195,19 +195,19 @@ export function isPlanningState(value: unknown): value is PlanningState {
 }
 
 export async function organizationExists(
-  db: D1Database,
+  db: AppDatabase,
   organizationId: string,
 ) {
   return Boolean(
     await db
       .prepare('SELECT id FROM organizations WHERE id = ?')
       .bind(organizationId)
-      .first<D1Row>(),
+      .first<DatabaseRow>(),
   );
 }
 
 export async function loadPlanningState(
-  db: D1Database,
+  db: AppDatabase,
   organizationId: string,
 ): Promise<PlanningState> {
   const row = await db
@@ -215,7 +215,7 @@ export async function loadPlanningState(
       'SELECT state_json FROM planning_profiles WHERE organization_id = ?',
     )
     .bind(organizationId)
-    .first<D1Row>();
+    .first<DatabaseRow>();
   if (!row) return structuredClone(emptyPlanningState);
   try {
     const state = JSON.parse(String(row.state_json));
@@ -227,7 +227,7 @@ export async function loadPlanningState(
 }
 
 export async function savePlanningState(
-  db: D1Database,
+  db: AppDatabase,
   organizationId: string,
   state: PlanningState,
   actor: string,
@@ -259,7 +259,7 @@ export async function savePlanningState(
 }
 
 export async function loadPlanningHistory(
-  db: D1Database,
+  db: AppDatabase,
   organizationId: string,
 ): Promise<PlanningHistory> {
   const [snapshots, salaryChanges, auditEvents] = await Promise.all([
@@ -268,18 +268,18 @@ export async function loadPlanningHistory(
         'SELECT id, captured_at, data_json FROM compensation_snapshots WHERE organization_id = ? ORDER BY captured_at DESC LIMIT 24',
       )
       .bind(organizationId)
-      .all<D1Row>(),
+      .all<DatabaseRow>(),
     db
       .prepare(`SELECT h.employee_id, h.previous_salary, h.new_salary, h.effective_at FROM salary_history h
       JOIN employees e ON e.id = h.employee_id WHERE e.organization_id = ? ORDER BY h.effective_at DESC LIMIT 100`)
       .bind(organizationId)
-      .all<D1Row>(),
+      .all<DatabaseRow>(),
     db
       .prepare(
         'SELECT id, actor, action, entity_type, entity_id, metadata_json, created_at FROM audit_events WHERE organization_id = ? ORDER BY created_at DESC LIMIT 100',
       )
       .bind(organizationId)
-      .all<D1Row>(),
+      .all<DatabaseRow>(),
   ]);
   return {
     snapshots: snapshots.results.map((row) => ({
@@ -298,7 +298,7 @@ export async function loadPlanningHistory(
       actor: String(row.actor),
       action: String(row.action),
       entityType: String(row.entity_type),
-      entityId: row.entity_id ? String(row.entity_id) : undefined,
+      entityId: typeof row.entity_id === 'string' ? row.entity_id : undefined,
       metadata: JSON.parse(String(row.metadata_json)) as Record<
         string,
         unknown

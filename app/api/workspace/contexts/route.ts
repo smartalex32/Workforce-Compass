@@ -1,18 +1,19 @@
-import { env } from 'cloudflare:workers';
+import { getDb, runtimeEnv } from '@/db/runtime';
 import { listWorkspaceContexts } from '@/lib/workspace-repository';
 import { authorizeApiRequest } from '@/lib/api-auth';
 import { loadPlanningState, planningActor, planningRoleFor } from '@/lib/planning-repository';
 
 export async function GET(request: Request) {
-  const unauthorized = authorizeApiRequest(request, env);
+  const unauthorized = authorizeApiRequest(request, runtimeEnv);
   if (unauthorized) return unauthorized;
+  const db = await getDb();
   const organizationId =
     new URL(request.url).searchParams.get('organizationId')?.trim() || undefined;
-  const contexts = await listWorkspaceContexts(env.DB, organizationId);
-  const actor = planningActor(request, env.WORKFORCE_COMPASS_TRUSTED_USER_HEADER);
+  const contexts = await listWorkspaceContexts(db, organizationId);
+  const actor = planningActor(request, runtimeEnv.WORKFORCE_COMPASS_TRUSTED_USER_HEADER);
   const allowedOrganizationIds = new Set((await Promise.all(contexts.organizations.map(async (organization) => ({
     id: organization.id,
-    role: planningRoleFor(await loadPlanningState(env.DB, organization.id), actor),
+    role: planningRoleFor(await loadPlanningState(db, organization.id), actor),
   })))).filter((entry) => entry.role).map((entry) => entry.id));
   const disciplines = contexts.disciplines.filter((discipline) => allowedOrganizationIds.has(discipline.organizationId));
   const disciplineIds = new Set(disciplines.map((discipline) => discipline.id));

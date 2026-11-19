@@ -2,26 +2,29 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { sampleWorkspace } from '@/lib/sample-data';
 import { loadWorkspace, saveWorkspace } from '@/lib/workspace-repository';
 import { loadPlanningState } from '@/lib/planning-repository';
-import { TestD1Database } from '@/lib/test-d1';
+import { createTestDatabase, type TestDatabase } from '@/lib/test-database';
 
 const workerEnv = vi.hoisted(() => ({
   DB: undefined as unknown,
   WORKFORCE_COMPASS_ALLOW_INSECURE_LOCAL: 'true' as string | undefined,
   WORKFORCE_COMPASS_TRUSTED_USER_HEADER: undefined as string | undefined,
 }));
-vi.mock('cloudflare:workers', () => ({ env: workerEnv }));
+vi.mock('@/db/runtime', () => ({
+  getDb: async () => workerEnv.DB,
+  runtimeEnv: workerEnv,
+}));
 import { POST } from './route';
 
 describe('integration sync API', () => {
-  let adapter: TestD1Database;
-  let db: D1Database;
+  let adapter: TestDatabase;
+  let db: TestDatabase;
   beforeEach(async () => {
-    adapter = new TestD1Database();
-    db = adapter as unknown as D1Database;
+    adapter = await createTestDatabase();
+    db = adapter;
     workerEnv.DB = adapter;
     await saveWorkspace(db, structuredClone(sampleWorkspace));
   });
-  afterEach(() => adapter.close());
+  afterEach(async () => adapter.close());
 
   it('validates and synchronizes an HRIS employee CSV', async () => {
     const csv =

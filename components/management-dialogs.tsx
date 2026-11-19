@@ -73,7 +73,7 @@ export function EmployeeDialog({
     title: '',
     disciplineId: workspace.discipline.id,
     careerLadderId: workspace.ladder.id,
-    levelId: workspace.levels[0]?.id ?? '',
+    levelId: workspace.levels.find((level) => !level.retired)?.id ?? '',
     salary: 0,
     notes: '',
   };
@@ -98,7 +98,7 @@ export function EmployeeDialog({
         }))
       : []),
   ].filter(
-    (level, index, items) => items.findIndex((item) => item.id === level.id) === index,
+    (level, index, items) => (!level.retired || level.id === employee?.levelId) && items.findIndex((item) => item.id === level.id) === index,
   );
 
   async function submit(event: { preventDefault(): void }) {
@@ -162,7 +162,7 @@ export function EmployeeDialog({
                 <Select value={draft.disciplineId} onValueChange={(value) => {
                   const disciplineId = String(value);
                   const careerLadderId = contexts.ladders.find((ladder) => ladder.disciplineId === disciplineId)?.id ?? '';
-                  const levelId = contexts.levels.find((level) => level.careerLadderId === careerLadderId)?.id ?? '';
+                  const levelId = contexts.levels.find((level) => level.careerLadderId === careerLadderId && !level.retired)?.id ?? '';
                   setDraft({ ...draft, disciplineId, careerLadderId, levelId });
                 }}>
                   <SelectTrigger className="dialog-select" aria-label="Employee discipline"><SelectValue /></SelectTrigger>
@@ -175,7 +175,7 @@ export function EmployeeDialog({
                 <span>Career ladder</span>
                 <Select value={draft.careerLadderId} onValueChange={(value) => {
                   const careerLadderId = String(value);
-                  const levelId = contexts.levels.find((level) => level.careerLadderId === careerLadderId)?.id ?? '';
+                  const levelId = contexts.levels.find((level) => level.careerLadderId === careerLadderId && !level.retired)?.id ?? '';
                   setDraft({ ...draft, careerLadderId, levelId });
                 }}>
                   <SelectTrigger className="dialog-select" aria-label="Employee career ladder"><SelectValue /></SelectTrigger>
@@ -277,9 +277,11 @@ export function EmployeeDialog({
 }
 
 function MarketEditor({ draft, setDraft }: { draft: Workspace; setDraft: (next: Workspace) => void }) {
-  function updateMarket(levelId: string, field: keyof Omit<MarketPoint, 'levelId'>, value: number) {
-    const existing = draft.market.find((point) => point.levelId === levelId) ?? { levelId, p25: 0, p50: 0, p75: 0 };
-    const nextPoint = { ...existing, [field]: value };
+  function updateMarket(levelId: string, field: keyof Omit<MarketPoint, 'levelId'>, value: string) {
+    const existing = draft.market.find((point) => point.levelId === levelId) ?? { levelId, p25: null, p50: 0, p75: null };
+    const nextPoint = field === 'p50'
+      ? { ...existing, p50: numericValue(value) }
+      : { ...existing, [field]: optionalNumericValue(value) };
     setDraft({ ...draft, market: [...draft.market.filter((point) => point.levelId !== levelId), nextPoint] });
   }
   function clearMarket(levelId: string) {
@@ -300,18 +302,18 @@ function MarketEditor({ draft, setDraft }: { draft: Workspace; setDraft: (next: 
           <tbody>
               {[...draft.levels].sort((a, b) => a.order - b.order).map((level) => {
                 const existingPoint = draft.market.find((item) => item.levelId === level.id);
-                const point = existingPoint ?? { levelId: level.id, p25: 0, p50: 0, p75: 0 };
+                const point = existingPoint ?? { levelId: level.id, p25: null, p50: 0, p75: null };
                 const valid = Boolean(existingPoint && validateMarketPoint(existingPoint));
                 return <tr key={level.id}>
                   <td><strong>{level.name}</strong><small>{level.description}</small></td>
-                  {(['p25', 'p50', 'p75'] as const).map((field) => <td key={field}><Input aria-label={`${level.name} ${field}`} type="number" min="0" step="1000" value={point[field] || ''} onChange={(event) => updateMarket(level.id, field, numericValue(event.target.value))} /></td>)}
+                  {(['p25', 'p50', 'p75'] as const).map((field) => <td key={field}><Input aria-label={`${level.name} ${field}`} type="number" min="0" step="0.01" value={point[field] || ''} onChange={(event) => updateMarket(level.id, field, event.target.value)} /></td>)}
                   <td><div className="market-row-status"><span className={`validation-state ${valid ? 'valid' : existingPoint ? 'invalid' : 'missing'}`}>{valid ? 'Ready' : existingPoint ? 'Check range' : 'Not available'}</span>{existingPoint && <Button type="button" variant="ghost" size="sm" onClick={() => clearMarket(level.id)}>Clear</Button>}</div></td>
                 </tr>;
               })}
           </tbody>
         </table>
       </div>
-      <p className="editor-note">Rows left blank remain unavailable. Entered rows require positive values satisfying P25 ≤ P50 ≤ P75.</p>
+      <p className="editor-note">Enter a positive P50. P25 and P75 are optional and must be ordered around the median when supplied.</p>
     </div>
   );
 }

@@ -1,16 +1,20 @@
 export type Level = {
   id: string;
   name: string;
+  code?: string;
+  retired?: boolean;
   order: number;
   description?: string;
 };
 
 export type MarketPoint = {
   levelId: string;
-  p25: number;
+  p25: number | null;
   p50: number;
-  p75: number;
+  p75: number | null;
 };
+
+export type MarketRange = MarketPoint & { p25: number; p75: number };
 
 export type Employee = {
   id: string;
@@ -45,6 +49,7 @@ export type HiringAssumption = {
 };
 
 export type Workspace = {
+  revision?: number;
   organization: { id: string; name: string; currency: string };
   laborMarket: { id: string; name: string; description?: string };
   discipline: { id: string; name: string; description?: string };
@@ -216,20 +221,20 @@ export function summarizeReplacementCostsByLevel(
 }
 
 export function validateMarketPoint(point: MarketPoint): boolean {
-  return (
-    [point.p25, point.p50, point.p75].every(
-      (value) => Number.isFinite(value) && value > 0,
-    ) &&
-    point.p25 <= point.p50 &&
-    point.p50 <= point.p75
-  );
+  return Number.isFinite(point.p50) && point.p50 > 0 &&
+    (point.p25 === null || (Number.isFinite(point.p25) && point.p25 > 0 && point.p25 <= point.p50)) &&
+    (point.p75 === null || (Number.isFinite(point.p75) && point.p50 <= point.p75));
+}
+
+export function hasMarketRange(point: MarketPoint): point is MarketRange {
+  return point.p25 !== null && point.p75 !== null && validateMarketPoint(point);
 }
 
 export function marketRangePosition(
   salary: number,
   point: MarketPoint | undefined,
 ): { label: string; percentile: number | null } | null {
-  if (!point || !validateMarketPoint(point) || !Number.isFinite(salary) || salary <= 0) return null;
+  if (!point || !hasMarketRange(point) || !Number.isFinite(salary) || salary <= 0) return null;
   if (salary < point.p25) return { label: 'Below market range', percentile: null };
   if (salary > point.p75) return { label: 'Above market range', percentile: null };
   if (salary === point.p50) return { label: 'At market median', percentile: 50 };

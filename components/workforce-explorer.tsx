@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 'react';
+import Link from 'next/link';
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -41,6 +42,7 @@ import type {
 import {
   calculateReplacementCost,
   employeeMetrics,
+  hasMarketRange,
   monotoneCubicInterpolate,
   splitContiguousSeries,
   summarizeReplacementCostsByLevel,
@@ -128,29 +130,42 @@ function LegendToggle({
   );
 }
 
-function CompensationChart({
+export function CompensationChart({
   workspace,
   visibility,
   onSelect,
+  responsive = false,
 }: {
   workspace: Workspace;
   visibility: Visibility;
   onSelect: (employee: Employee) => void;
+  responsive?: boolean;
 }) {
   const [hoveredEmployee, setHoveredEmployee] = useState<{
     employee: Employee;
     x: number;
     y: number;
   } | null>(null);
-  const width = 1040;
-  const height = 485;
-  const frame = { left: 78, right: 30, top: 28, bottom: 58 };
+  const frameRef = useRef<HTMLDivElement>(null);
+  const [measuredWidth, setMeasuredWidth] = useState(900);
+  const chartId = useId();
+  useEffect(() => {
+    const element = frameRef.current;
+    if (!responsive || !element) return;
+    const observer = new ResizeObserver(([entry]) => setMeasuredWidth(Math.floor(entry.contentRect.width)));
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [responsive]);
+  const width = responsive ? Math.max(280, measuredWidth) : 1040;
+  const small = responsive && width < 540;
+  const height = responsive ? (small ? 290 : 410) : 485;
+  const frame = small ? { left: 59, right: 24, top: 20, bottom: 48 } : { left: 78, right: 30, top: 28, bottom: 58 };
   const levels = [...workspace.levels].sort((a, b) => a.order - b.order);
   const validMarket = workspace.market.filter(validateMarketPoint);
   const validEmployees = workspace.employees.filter(
     (employee) => Number.isFinite(employee.salary) && employee.salary > 0,
   );
-  const allValues = validMarket.flatMap((point) => [point.p25, point.p75]);
+  const allValues = validMarket.flatMap((point) => [point.p25, point.p50, point.p75].filter((value) => value !== null));
   const salaries = validEmployees
     .map((employee) => employee.salary)
     .filter((salary) => Number.isFinite(salary) && salary > 0);
@@ -166,7 +181,7 @@ function CompensationChart({
   const innerWidth = width - frame.left - frame.right;
   const innerHeight = height - frame.top - frame.bottom;
   const xForIndex = (index: number) =>
-    frame.left + (index / Math.max(1, levels.length - 1)) * innerWidth;
+    frame.left + (levels.length === 1 ? .5 : index / Math.max(1, levels.length - 1)) * innerWidth;
   const yForValue = (value: number) =>
     frame.top + ((max - value) / Math.max(1, max - min)) * innerHeight;
   const levelIndex = new Map(levels.map((level, index) => [level.id, index]));
@@ -185,7 +200,11 @@ function CompensationChart({
 
   const curve = (key: 'p25' | 'p50' | 'p75') =>
     splitContiguousSeries(
-      marketSeries.map(({ point, index }) => ({ x: index, y: point[key] })),
+      marketSeries.flatMap(({ point, index }) => {
+        if (key !== 'p50' && !hasMarketRange(point)) return [];
+        const value = point[key];
+        return value === null ? [] : [{ x: index, y: value }];
+      }),
     ).map((segment) =>
       monotoneCubicInterpolate(segment, 20).map((point) => ({
         x: xForIndex(point.x),
@@ -222,7 +241,7 @@ function CompensationChart({
   );
 
   return (
-    <div className="chart-frame">
+    <div className="chart-frame" ref={frameRef}>
       <svg
         className="primary-chart"
         viewBox={`0 0 ${width} ${height}`}
@@ -230,11 +249,11 @@ function CompensationChart({
         aria-label="Employee compensation plotted against the selected market range and team median curve"
       >
         <defs>
-          <linearGradient id="marketBand" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#5ed3c2" stopOpacity="0.25" />
-            <stop offset="100%" stopColor="#5ed3c2" stopOpacity="0.07" />
+          <linearGradient id={`${chartId}-band`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--analysis-band, #5ed3c2)" stopOpacity="0.25" />
+            <stop offset="100%" stopColor="var(--analysis-band, #5ed3c2)" stopOpacity="0.07" />
           </linearGradient>
-          <filter id="pointShadow" x="-40%" y="-40%" width="180%" height="180%">
+          <filter id={`${chartId}-shadow`} x="-40%" y="-40%" width="180%" height="180%">
             <feDropShadow dx="0" dy="3" stdDeviation="4" floodOpacity="0.18" />
           </filter>
         </defs>
@@ -251,7 +270,7 @@ function CompensationChart({
               />
               <text
                 className="axis-label axis-money"
-                x={frame.left - 16}
+                x={frame.left - (small ? 10 : 16)}
                 y={y + 5}
                 textAnchor="end"
               >
@@ -262,6 +281,7 @@ function CompensationChart({
         })}
         {levels.map((level, index) => {
           const x = xForIndex(index);
+          const labelEvery = responsive ? Math.max(1, Math.ceil(levels.length / Math.max(1, Math.floor(innerWidth / 65)))) : 1;
           return (
             <g key={level.id}>
               <line
@@ -271,19 +291,19 @@ function CompensationChart({
                 y1={frame.top}
                 y2={height - frame.bottom}
               />
-              <text
+              {index % labelEvery === 0 && <text
                 className="axis-level"
                 x={x}
                 y={height - 20}
                 textAnchor="middle"
               >
-                {level.name}
-              </text>
+                {responsive ? level.code || level.name : level.name}
+              </text>}
             </g>
           );
         })}
         {visibility.band && bandPaths.map((bandPath, index) => (
-          <path key={`band-${index}`} d={bandPath} fill="url(#marketBand)" />
+          <path key={`band-${index}`} d={bandPath} fill={`url(#${chartId}-band)`} />
         ))}
         {visibility.band && (
           <>
@@ -302,10 +322,10 @@ function CompensationChart({
             ))}
             {marketSeries.map(({ point, index }) => (
               <g key={`market-observation-${point.levelId}`} className="market-observation">
-                <title>{`${levels[index].name}: P25 ${formatMoney(point.p25, workspace.organization.currency)}, P50 ${formatMoney(point.p50, workspace.organization.currency)}, P75 ${formatMoney(point.p75, workspace.organization.currency)}`}</title>
-                <circle cx={xForIndex(index)} cy={yForValue(point.p25)} r="3" />
+                <title>{`${levels[index].name}: P50 ${formatMoney(point.p50, workspace.organization.currency)}${hasMarketRange(point) ? `, P25–P75 ${formatMoney(point.p25, workspace.organization.currency)}–${formatMoney(point.p75, workspace.organization.currency)}` : ', market range unavailable'}`}</title>
+                {hasMarketRange(point) && <circle cx={xForIndex(index)} cy={yForValue(point.p25)} r="3" />}
                 <circle cx={xForIndex(index)} cy={yForValue(point.p50)} r="4" />
-                <circle cx={xForIndex(index)} cy={yForValue(point.p75)} r="3" />
+                {hasMarketRange(point) && <circle cx={xForIndex(index)} cy={yForValue(point.p75)} r="3" />}
               </g>
             ))}
           </>
@@ -332,7 +352,8 @@ function CompensationChart({
             const localIndex = sameLevel.findIndex(
               (item) => item.id === employee.id,
             );
-            const offset = (localIndex - (sameLevel.length - 1) / 2) * 12;
+            const spacing = responsive ? Math.min(12, innerWidth / Math.max(1, levels.length) / Math.max(1, sameLevel.length)) : 12;
+            const offset = (localIndex - (sameLevel.length - 1) / 2) * spacing;
             const x = xForIndex(index) + offset;
             const y = yForValue(employee.salary);
             const metrics = employeeMetrics(workspace, employee);
@@ -366,16 +387,16 @@ function CompensationChart({
               >
                 <title>{`${employee.name} · ${levels[index].name} · ${formatMoney(employee.salary, workspace.organization.currency)}`}</title>
                 <circle cx={x} cy={y} r="12" fill="transparent" />
-                <circle cx={x} cy={y} r="6.5" filter="url(#pointShadow)" />
+                <circle cx={x} cy={y} r="6.5" filter={responsive ? undefined : `url(#${chartId}-shadow)`} />
                 <text x={x} y={y - 15} textAnchor="middle" className="point-name">
-                  {[6, 9, 11].includes(employeeIndex)
+                  {!responsive && [6, 9, 11].includes(employeeIndex)
                     ? employee.name.split(' ')[0]
                     : ''}
                 </text>
               </g>
             );
           })}
-        {hoveredEmployee && (() => {
+        {hoveredEmployee && !responsive && (() => {
           const metrics = employeeMetrics(workspace, hoveredEmployee.employee);
           const level = levels.find((item) => item.id === hoveredEmployee.employee.levelId);
           const tooltipWidth = 282;
@@ -899,8 +920,10 @@ function EmployeeDetail({
 
 export function WorkforceExplorer({
   initialWorkspace,
+  organizationId,
 }: {
   initialWorkspace: Workspace;
+  organizationId?: string;
 }) {
   const [workspace, setWorkspace] = useState(initialWorkspace);
   const [view, setView] = useState<ViewMode>('curve');
@@ -913,7 +936,7 @@ export function WorkforceExplorer({
   const [workspaceDialogOpen, setWorkspaceDialogOpen] = useState(false);
   const [contexts, setContexts] = useState<WorkspaceContexts>(emptyContexts);
   const [workspaceLoaded, setWorkspaceLoaded] = useState(false);
-  const [saveState, setSaveState] = useState<'loading' | 'saved' | 'saving' | 'error'>('loading');
+  const [saveState, setSaveState] = useState<'loading' | 'saved' | 'saving' | 'empty' | 'error'>('loading');
   const editingDisabled = !workspaceLoaded || saveState === 'loading' || saveState === 'saving';
   const [visibility, setVisibility] = useState<Visibility>({
     band: true,
@@ -1041,7 +1064,8 @@ export function WorkforceExplorer({
     let active = true;
     async function loadWorkspace() {
       try {
-        const response = await fetch('/api/workspace');
+        const suffix = organizationId ? `?${new URLSearchParams({ organizationId })}` : '';
+        const response = await fetch(`/api/workspace${suffix}`);
         if (!response.ok) throw new Error('Load failed');
         const result = (await response.json()) as { workspace: Workspace | null };
         if (!active) return;
@@ -1052,7 +1076,7 @@ export function WorkforceExplorer({
           if (!active) return;
           setSaveState('saved');
         } else {
-          await persistWorkspace(initialWorkspace);
+          setSaveState('empty');
         }
       } catch {
         if (active) setSaveState('error');
@@ -1062,7 +1086,7 @@ export function WorkforceExplorer({
     return () => {
       active = false;
     };
-  }, [initialWorkspace, persistWorkspace, refreshContexts]);
+  }, [organizationId, refreshContexts]);
 
   const saveEmployee = useCallback(async (employee: Employee) => {
     if (editingDisabled) return false;
@@ -1244,6 +1268,18 @@ export function WorkforceExplorer({
     return () => lifecycle.abort();
   }, [saveEmployee, workspace, summary]);
 
+  if (!workspaceLoaded) return (
+    <main className="office-shell">
+      <div className="office-content">
+        <Link href="/?workspace=offices">Workforce Compass</Link>
+        <h1>Analysis</h1>
+        <p role="status">{saveState === 'loading' ? 'Loading analysis…' :
+          saveState === 'empty' ? 'No analysis dataset is available for this workspace yet.' : 'Analysis could not be loaded.'}</p>
+        <Link href="/?workspace=offices">Open the office workspace</Link>
+      </div>
+    </main>
+  );
+
   return (
     <main className="app-shell">
       <aside className="workspace-sidebar" aria-label="Workspace navigation">
@@ -1297,6 +1333,7 @@ export function WorkforceExplorer({
           <BriefcaseBusiness />
           <span>{workspace.organization.name}</span>
           <small>Workforce workspace</small>
+          <Link href={`/?${new URLSearchParams({ workspace: 'offices', organizationId: workspace.organization.id })}`}>People</Link>
         </div>
         <div className="header-actions">
           <span className={`save-status status-${saveState}`} aria-live="polite">

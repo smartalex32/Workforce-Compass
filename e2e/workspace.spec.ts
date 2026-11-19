@@ -59,7 +59,7 @@ test('completes the primary compensation planning workflow and reloads saved dat
     await route.fulfill({ status: 404, json: { error: 'Not mocked' } });
   });
 
-  await page.goto('/');
+  await page.goto('/analysis');
   await expect(page.getByText('Workforce Compass', { exact: true }).first()).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Compensation curve' })).toBeVisible();
   await expect(page.getByLabel('Employee compensation plotted against the selected market range and team median curve')).toBeVisible();

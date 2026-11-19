@@ -58,7 +58,7 @@ function csvCell(value: unknown) {
   return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }
 
-export function parseCsv(input: string): string[][] {
+export function parseCsv(input: string, { includeBlankRows = false } = {}): string[][] {
   const rows: string[][] = [];
   let row: string[] = [];
   let value = '';
@@ -77,7 +77,7 @@ export function parseCsv(input: string): string[][] {
       value = '';
     } else if (character === '\n') {
       row.push(value.replace(/\r$/, ''));
-      if (row.some((cell) => cell.length)) rows.push(row);
+      if (includeBlankRows || row.some((cell) => cell.length)) rows.push(row);
       row = [];
       value = '';
     } else value += character;
@@ -226,13 +226,13 @@ export function importMarketCsv(
   const records = recordsFromCsv(input).flatMap((row, index) => {
     const point = {
       levelId: row.levelId,
-      p25: Number(row.p25),
+      p25: row.p25?.trim() ? Number(row.p25) : null,
       p50: Number(row.p50),
-      p75: Number(row.p75),
+      p75: row.p75?.trim() ? Number(row.p75) : null,
     };
     if (!levelIds.has(point.levelId) || !validateMarketPoint(point)) {
       errors.push(
-        `Row ${index + 2}: valid levelId and positive P25 ≤ P50 ≤ P75 are required.`,
+        `Row ${index + 2}: enter a valid levelId and positive P50. When supplied, P25 and P75 must be positive and ordered around P50.`,
       );
       return [];
     }
@@ -261,9 +261,9 @@ export function applyGeographicDifferential(
     return null;
   return {
     ...point,
-    p25: point.p25 * factor,
+    p25: point.p25 === null ? null : point.p25 * factor,
     p50: point.p50 * factor,
-    p75: point.p75 * factor,
+    p75: point.p75 === null ? null : point.p75 * factor,
   };
 }
 
