@@ -1,4 +1,4 @@
-type AuthEnvironment = {
+export type AuthEnvironment = {
   WORKFORCE_COMPASS_ALLOW_INSECURE_LOCAL?: string;
   WORKFORCE_COMPASS_AUTH_TOKEN?: string;
   WORKFORCE_COMPASS_TRUST_SITES_IDENTITY?: string;

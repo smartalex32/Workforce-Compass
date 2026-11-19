@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
+import './office.css';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -15,7 +16,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: 'Workforce Compass',
   description:
-    'Interactive workforce compensation and replacement-cost analysis.',
+    'Office rosters, engineering job levels, pay bands, and compensation analysis.',
 };
 
 export default function RootLayout({

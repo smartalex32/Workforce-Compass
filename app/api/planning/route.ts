@@ -1,4 +1,4 @@
-import { env } from 'cloudflare:workers';
+import { getDb, runtimeEnv } from '@/db/runtime';
 import { authorizeApiRequest } from '@/lib/api-auth';
 import {
   canEditPlanning,
@@ -12,11 +12,12 @@ import {
 } from '@/lib/planning-repository';
 
 const actor = (request: Request) =>
-  planningActor(request, env.WORKFORCE_COMPASS_TRUSTED_USER_HEADER);
+  planningActor(request, runtimeEnv.WORKFORCE_COMPASS_TRUSTED_USER_HEADER);
 
 export async function GET(request: Request) {
-  const unauthorized = authorizeApiRequest(request, env);
+  const unauthorized = authorizeApiRequest(request, runtimeEnv);
   if (unauthorized) return unauthorized;
+  const db = await getDb();
   const organizationId = new URL(request.url).searchParams
     .get('organizationId')
     ?.trim();
@@ -25,12 +26,12 @@ export async function GET(request: Request) {
       { error: 'organizationId is required.' },
       { status: 400 },
     );
-  if (!(await organizationExists(env.DB, organizationId)))
+  if (!(await organizationExists(db, organizationId)))
     return Response.json(
       { error: 'The organization was not found.' },
       { status: 404 },
     );
-  const state = await loadPlanningState(env.DB, organizationId);
+  const state = await loadPlanningState(db, organizationId);
   const role = planningRoleFor(state, actor(request));
   if (!role)
     return Response.json(
@@ -40,13 +41,14 @@ export async function GET(request: Request) {
   return Response.json({
     state,
     role,
-    history: await loadPlanningHistory(env.DB, organizationId),
+    history: await loadPlanningHistory(db, organizationId),
   });
 }
 
 export async function PUT(request: Request) {
-  const unauthorized = authorizeApiRequest(request, env);
+  const unauthorized = authorizeApiRequest(request, runtimeEnv);
   if (unauthorized) return unauthorized;
+  const db = await getDb();
   let input: { organizationId?: string; state?: unknown };
   try {
     input = (await request.json()) as typeof input;
@@ -61,12 +63,12 @@ export async function PUT(request: Request) {
       { error: 'A valid organizationId and planning state are required.' },
       { status: 400 },
     );
-  if (!(await organizationExists(env.DB, input.organizationId)))
+  if (!(await organizationExists(db, input.organizationId)))
     return Response.json(
       { error: 'The organization was not found.' },
       { status: 404 },
     );
-  const current = await loadPlanningState(env.DB, input.organizationId);
+  const current = await loadPlanningState(db, input.organizationId);
   const role = planningRoleFor(current, actor(request));
   if (!canEditPlanning(role))
     return Response.json(
@@ -83,7 +85,7 @@ export async function PUT(request: Request) {
     );
   const now = new Date().toISOString();
   await savePlanningState(
-    env.DB,
+    db,
     input.organizationId,
     input.state,
     actor(request),

@@ -1,4 +1,4 @@
-import { env } from 'cloudflare:workers';
+import { getDb, runtimeEnv } from '@/db/runtime';
 import type { Workspace } from '@/lib/domain';
 import { validateMarketPoint } from '@/lib/domain';
 import { authorizeApiRequest } from '@/lib/api-auth';
@@ -52,7 +52,7 @@ function hasManagerCycle(employees: Workspace['employees']) {
 
 function hasWorkspaceShape(value: unknown): value is Workspace {
   if (!isRecord(value)) return false;
-  const { organization, laborMarket, discipline, ladder, dataset } = value;
+  const { organization, laborMarket, discipline, ladder, dataset, revision } = value;
   const levels = value.levels;
   const market = value.market;
   const employees = value.employees;
@@ -69,6 +69,7 @@ function hasWorkspaceShape(value: unknown): value is Workspace {
   return Boolean(
     namedEntity(organization) &&
       typeof organization.currency === 'string' &&
+      (revision === undefined || (typeof revision === 'number' && Number.isInteger(revision) && revision >= 0)) &&
       namedEntity(laborMarket) &&
       namedEntity(discipline) &&
       namedEntity(ladder) &&
@@ -91,12 +92,12 @@ function hasWorkspaceShape(value: unknown): value is Workspace {
         (point) =>
           isRecord(point) &&
           typeof point.levelId === 'string' &&
-          typeof point.p25 === 'number' &&
+          (point.p25 === null || typeof point.p25 === 'number') &&
           typeof point.p50 === 'number' &&
-          typeof point.p75 === 'number' &&
-          Number.isFinite(point.p25) &&
+          (point.p75 === null || typeof point.p75 === 'number') &&
+          (point.p25 === null || Number.isFinite(point.p25)) &&
           Number.isFinite(point.p50) &&
-          Number.isFinite(point.p75),
+          (point.p75 === null || Number.isFinite(point.p75)),
       ) &&
       Array.isArray(employees) &&
       employees.every(
@@ -139,12 +140,14 @@ function hasWorkspaceShape(value: unknown): value is Workspace {
 }
 
 export async function GET(request: Request) {
-  const unauthorized = authorizeApiRequest(request, env);
+  const unauthorized = authorizeApiRequest(request, runtimeEnv);
   if (unauthorized) return unauthorized;
+  const db = await getDb();
   const url = new URL(request.url);
   const selection: WorkspaceSelection = {};
   const parameterMap: Array<[keyof WorkspaceSelection, string]> = [
     ['organizationId', 'organizationId'],
+    ['officeId', 'officeId'],
     ['laborMarketId', 'laborMarketId'],
     ['disciplineId', 'disciplineId'],
     ['ladderId', 'ladderId'],
@@ -155,7 +158,7 @@ export async function GET(request: Request) {
     if (value) selection[key] = value;
   }
 
-  const workspace = await loadWorkspace(env.DB, selection);
+  const workspace = await loadWorkspace(db, selection);
   if (!workspace && Object.keys(selection).length) {
     return Response.json(
       { error: 'The requested workspace context was not found.' },
@@ -163,8 +166,8 @@ export async function GET(request: Request) {
     );
   }
   if (workspace) {
-    const planning = await loadPlanningState(env.DB, workspace.organization.id);
-    if (!planningRoleFor(planning, planningActor(request, env.WORKFORCE_COMPASS_TRUSTED_USER_HEADER))) {
+    const planning = await loadPlanningState(db, workspace.organization.id);
+    if (!planningRoleFor(planning, planningActor(request, runtimeEnv.WORKFORCE_COMPASS_TRUSTED_USER_HEADER))) {
       return Response.json({ error: 'This identity is not a workspace member.' }, { status: 403 });
     }
   }
@@ -172,8 +175,9 @@ export async function GET(request: Request) {
 }
 
 export async function PUT(request: Request) {
-  const unauthorized = authorizeApiRequest(request, env);
+  const unauthorized = authorizeApiRequest(request, runtimeEnv);
   if (unauthorized) return unauthorized;
+  const db = await getDb();
   let input: { workspace?: Workspace };
   try {
     input = (await request.json()) as { workspace?: Workspace };
@@ -182,8 +186,8 @@ export async function PUT(request: Request) {
   }
   const workspace = input.workspace;
   if (!hasWorkspaceShape(workspace)) return badRequest('A complete workspace is required.');
-  const planning = await loadPlanningState(env.DB, workspace.organization.id);
-  if (!canEditPlanning(planningRoleFor(planning, planningActor(request, env.WORKFORCE_COMPASS_TRUSTED_USER_HEADER)))) {
+  const planning = await loadPlanningState(db, workspace.organization.id);
+  if (!canEditPlanning(planningRoleFor(planning, planningActor(request, runtimeEnv.WORKFORCE_COMPASS_TRUSTED_USER_HEADER)))) {
     return Response.json({ error: 'Analyst or admin access is required.' }, { status: 403 });
   }
   const requiredEntities = [
@@ -260,7 +264,7 @@ export async function PUT(request: Request) {
 
   const now = new Date().toISOString();
   try {
-    await saveWorkspace(env.DB, workspace, now, planningActor(request, env.WORKFORCE_COMPASS_TRUSTED_USER_HEADER));
+    workspace.revision = await saveWorkspace(db, workspace, now, planningActor(request, runtimeEnv.WORKFORCE_COMPASS_TRUSTED_USER_HEADER));
   } catch (error) {
     if (error instanceof WorkspaceConflictError) {
       return Response.json({ error: error.message }, { status: 409 });

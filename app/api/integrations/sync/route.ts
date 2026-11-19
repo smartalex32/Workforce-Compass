@@ -1,4 +1,4 @@
-import { env } from 'cloudflare:workers';
+import { getDb, runtimeEnv } from '@/db/runtime';
 import { authorizeApiRequest } from '@/lib/api-auth';
 import {
   importEmployeesCsv,
@@ -19,8 +19,9 @@ import {
 } from '@/lib/planning-repository';
 
 export async function POST(request: Request) {
-  const unauthorized = authorizeApiRequest(request, env);
+  const unauthorized = authorizeApiRequest(request, runtimeEnv);
   if (unauthorized) return unauthorized;
+  const db = await getDb();
   let input: {
     kind?: 'hris' | 'survey';
     csv?: string;
@@ -42,16 +43,16 @@ export async function POST(request: Request) {
       { error: 'kind and csv are required.' },
       { status: 400 },
     );
-  const workspace = await loadWorkspace(env.DB, input.selection ?? {});
+  const workspace = await loadWorkspace(db, input.selection ?? {});
   if (!workspace)
     return Response.json(
       { error: 'The workspace was not found.' },
       { status: 404 },
     );
-  const planning = await loadPlanningState(env.DB, workspace.organization.id);
+  const planning = await loadPlanningState(db, workspace.organization.id);
   const role = planningRoleFor(
     planning,
-    planningActor(request, env.WORKFORCE_COMPASS_TRUSTED_USER_HEADER),
+    planningActor(request, runtimeEnv.WORKFORCE_COMPASS_TRUSTED_USER_HEADER),
   );
   if (!canEditPlanning(role))
     return Response.json(
@@ -80,12 +81,12 @@ export async function POST(request: Request) {
   const now = new Date().toISOString();
   const actor = planningActor(
     request,
-    env.WORKFORCE_COMPASS_TRUSTED_USER_HEADER,
+    runtimeEnv.WORKFORCE_COMPASS_TRUSTED_USER_HEADER,
   );
-  await saveWorkspace(env.DB, updated, now, actor);
+  await saveWorkspace(db, updated, now, actor);
   const integrationId = `${input.kind}-csv-sync`;
   await savePlanningState(
-    env.DB,
+    db,
     workspace.organization.id,
     {
       ...planning,

@@ -25,6 +25,8 @@ export default defineConfig({
     env: {
       ...process.env,
       WORKFORCE_COMPASS_ALLOW_INSECURE_LOCAL: 'true',
+      DATABASE_URL: '',
+      WORKFORCE_COMPASS_PGLITE_DIR: 'memory://',
     },
   },
 });

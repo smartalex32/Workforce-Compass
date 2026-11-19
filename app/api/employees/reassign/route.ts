@@ -1,4 +1,4 @@
-import { env } from 'cloudflare:workers';
+import { getDb, runtimeEnv } from '@/db/runtime';
 import { authorizeApiRequest } from '@/lib/api-auth';
 import type { Employee } from '@/lib/domain';
 import { reassignEmployee } from '@/lib/workspace-repository';
@@ -30,8 +30,9 @@ function isEmployee(value: unknown): value is Employee {
 }
 
 export async function POST(request: Request) {
-  const unauthorized = authorizeApiRequest(request, env);
+  const unauthorized = authorizeApiRequest(request, runtimeEnv);
   if (unauthorized) return unauthorized;
+  const db = await getDb();
 
   let input: unknown;
   try {
@@ -69,18 +70,18 @@ export async function POST(request: Request) {
     );
   }
 
-  const planning = await loadPlanningState(env.DB, input.organizationId);
-  if (!canEditPlanning(planningRoleFor(planning, planningActor(request, env.WORKFORCE_COMPASS_TRUSTED_USER_HEADER)))) {
+  const planning = await loadPlanningState(db, input.organizationId);
+  if (!canEditPlanning(planningRoleFor(planning, planningActor(request, runtimeEnv.WORKFORCE_COMPASS_TRUSTED_USER_HEADER)))) {
     return Response.json({ error: 'Analyst or admin access is required.' }, { status: 403 });
   }
 
   const employee = { ...input.employee, name: input.employee.name.trim() };
-  const moved = await reassignEmployee(env.DB, {
+  const moved = await reassignEmployee(db, {
     organizationId: input.organizationId,
     sourceDisciplineId: input.sourceDisciplineId,
     sourceCareerLadderId: input.sourceCareerLadderId,
     employee,
-    actor: planningActor(request, env.WORKFORCE_COMPASS_TRUSTED_USER_HEADER),
+    actor: planningActor(request, runtimeEnv.WORKFORCE_COMPASS_TRUSTED_USER_HEADER),
   });
 
   if (!moved) {

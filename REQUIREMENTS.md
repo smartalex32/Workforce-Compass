@@ -4,6 +4,16 @@ This is the canonical requirement inventory derived from the product requirement
 
 Status values: **Implemented** means the requirement is complete; **Partial** means the foundation exists but the full workflow remains; **Planned** is not implemented; **Deferred** is intentionally post-MVP.
 
+## Office workspace
+
+| ID | Requirement | Status | Issue |
+|---|---|---|---|
+| R-OFF-01 | Create an office by name and link it to an optional labor market. Add or transfer people while salary and level are pending. Review suggested assignments for legacy locations. | Implemented | [#24](https://github.com/smartalex32/Workforce-Compass/issues/24) |
+| R-OFF-02 | Share stable job levels across offices. Support multiple families and ladders, an editable engineering starter ladder, and retirement for referenced levels. | Implemented | [#25](https://github.com/smartalex32/Workforce-Compass/issues/25) |
+| R-OFF-03 | Review and publish dated company bands and labor-market overrides with an optional midpoint. Use company bands when an override ends. | Implemented | [#26](https://github.com/smartalex32/Workforce-Compass/issues/26) |
+| R-OFF-04 | Preview mapped CSV or XLSX annual base-pay survey rows before applying reviewed changes to a selected dataset. Preserve missing percentiles and reuse confirmed mappings. | Implemented | [#28](https://github.com/smartalex32/Workforce-Compass/issues/28) |
+| R-OFF-05 | Open on the focused roster, keep full compensation analysis accessible, and provide a separate demo and a configurable legacy entry point. | Implemented | [#29](https://github.com/smartalex32/Workforce-Compass/issues/29), [#30](https://github.com/smartalex32/Workforce-Compass/issues/30) |
+
 ## Domain and persistence
 
 | ID | Requirement | Status | Issue |

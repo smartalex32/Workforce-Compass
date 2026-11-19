@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { sampleWorkspace } from '@/lib/sample-data';
 import { saveWorkspace } from '@/lib/workspace-repository';
-import { TestD1Database } from '@/lib/test-d1';
+import { createTestDatabase, type TestDatabase } from '@/lib/test-database';
 import type { PlanningState } from '@/lib/workforce-planning';
 
 const workerEnv = vi.hoisted(() => ({
@@ -10,7 +10,10 @@ const workerEnv = vi.hoisted(() => ({
   WORKFORCE_COMPASS_TRUSTED_USER_HEADER: 'x-user-email' as string | undefined,
 }));
 
-vi.mock('cloudflare:workers', () => ({ env: workerEnv }));
+vi.mock('@/db/runtime', () => ({
+  getDb: async () => workerEnv.DB,
+  runtimeEnv: workerEnv,
+}));
 
 import { GET, PUT } from './route';
 
@@ -30,18 +33,15 @@ const state: PlanningState = {
 };
 
 describe('planning API route', () => {
-  let adapter: TestD1Database;
+  let adapter: TestDatabase;
 
   beforeEach(async () => {
-    adapter = new TestD1Database();
+    adapter = await createTestDatabase();
     workerEnv.DB = adapter;
-    await saveWorkspace(
-      adapter as unknown as D1Database,
-      structuredClone(sampleWorkspace),
-    );
+    await saveWorkspace(adapter, structuredClone(sampleWorkspace));
   });
 
-  afterEach(() => adapter.close());
+  afterEach(async () => adapter.close());
 
   it('bootstraps admin access, persists planning state, and returns history', async () => {
     const save = await PUT(
