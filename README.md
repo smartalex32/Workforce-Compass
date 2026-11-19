@@ -47,6 +47,8 @@ Survey imports process up to 5,000 rows per review. Use the labor-market field a
 
 ## Local development
 
+Use Node.js 26 to match CI and run the PGlite integration tests.
+
 ```bash
 npm install
 cp .env.example .env.local
