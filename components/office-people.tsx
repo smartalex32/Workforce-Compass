@@ -4,10 +4,12 @@ import { useEffect, useRef, useState, type SubmitEvent } from 'react';
 import { MapPin, Pencil, Plus, Search, UserRoundPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
+  CLEARANCE_LEVELS,
   effectivePayBand,
   formText,
   suggestOfficeMatches,
   utcDate,
+  type ClearanceLevel,
   type Office,
   type OfficeWorkspaceData,
   type OfficeWorkspaceSave,
@@ -91,6 +93,10 @@ function PersonEditor({
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const salary = formText(form, 'salary');
+    const clearanceLevel = formText(form, 'clearanceLevel') as
+      | ClearanceLevel
+      | '';
+    const yearsExperience = formText(form, 'yearsExperience');
     const saved = await save({
       action: 'person',
       id: person?.id,
@@ -99,6 +105,8 @@ function PersonEditor({
       officeId: formText(form, 'officeId'),
       levelId: formText(form, 'levelId') || null,
       salary: salary === '' ? null : Number(salary),
+      clearanceLevel: clearanceLevel || null,
+      yearsExperience: yearsExperience === '' ? null : Number(yearsExperience),
     });
     if (saved) close();
   }
@@ -202,6 +210,41 @@ function PersonEditor({
               step="0.01"
               defaultValue={person?.salary ?? ''}
             />
+          </label>
+        </div>
+      </details>
+      <details open={person ? true : undefined} className="office-disclosure">
+        <summary>
+          Experience and clearance{' '}
+          <span className="office-muted">· optional</span>
+        </summary>
+        <div className="office-form-grid">
+          <label>
+            Years of experience
+            <input
+              className="office-input"
+              name="yearsExperience"
+              type="number"
+              inputMode="decimal"
+              min="0"
+              step="any"
+              defaultValue={person?.yearsExperience ?? ''}
+            />
+          </label>
+          <label>
+            Security clearance
+            <select
+              className="office-input"
+              name="clearanceLevel"
+              defaultValue={person?.clearanceLevel ?? ''}
+            >
+              <option value="">Not recorded</option>
+              {Object.entries(CLEARANCE_LEVELS).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
           </label>
         </div>
       </details>
@@ -490,6 +533,22 @@ export function OfficePeople({
                   person={activePerson}
                   office={office}
                 />
+              </dd>
+            </div>
+            <div>
+              <dt>Years of experience</dt>
+              <dd>
+                {activePerson.yearsExperience == null
+                  ? 'Not recorded'
+                  : `${activePerson.yearsExperience} ${activePerson.yearsExperience === 1 ? 'year' : 'years'}`}
+              </dd>
+            </div>
+            <div>
+              <dt>Security clearance</dt>
+              <dd>
+                {activePerson.clearanceLevel
+                  ? CLEARANCE_LEVELS[activePerson.clearanceLevel]
+                  : 'Not recorded'}
               </dd>
             </div>
           </dl>

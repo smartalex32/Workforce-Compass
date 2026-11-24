@@ -14,6 +14,7 @@ export const organizations = pgTable('organizations', {
   name: text('name').notNull(),
   defaultLaborMarketId: text('default_labor_market_id'),
   currency: text('currency').notNull().default('USD'),
+  companySize: text('company_size'),
   workspaceRevision: integer('workspace_revision').notNull().default(0),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
@@ -180,6 +181,8 @@ export const employees = pgTable(
     managerId: text('manager_id'),
     performanceRating: doublePrecision('performance_rating'),
     notes: text('notes'),
+    clearanceLevel: text('clearance_level'),
+    yearsExperience: doublePrecision('years_experience'),
   },
   (table) => [
     index('idx_employees_analysis_scope').on(

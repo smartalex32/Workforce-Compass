@@ -7,13 +7,16 @@ import { CompensationChart } from '@/components/workforce-explorer';
 import {
   employeeMetrics,
   hasMarketRange,
+  teamMedianForLevel,
   type Employee,
   type Workspace,
 } from '@/lib/domain';
-import type {
-  Office,
-  OfficeWorkspaceData,
-  RosterPerson,
+import {
+  effectivePayBand,
+  utcDate,
+  type Office,
+  type OfficeWorkspaceData,
+  type RosterPerson,
 } from '@/lib/office-workspace';
 import { officeMoney } from '@/components/office-people';
 
@@ -119,6 +122,20 @@ export function OfficeAnalysis({
   const levels = data.levels.filter(
     (level) => level.ladderId === currentLadder?.id,
   );
+  const asOf = utcDate();
+  const bandMarketId =
+    scope === 'office' ? (office?.laborMarketId ?? null) : null;
+  const payBands = levels.flatMap((level) => {
+    const band = effectivePayBand(
+      data.bands,
+      level.id,
+      bandMarketId,
+      asOf,
+    )?.values;
+    return band ? [band] : [];
+  });
+  const bandLabel =
+    scope === 'office' ? 'Effective pay band' : 'Company pay band';
   const eligible = people
     .filter(hasAnalysisInputs)
     .filter((person) => person.careerLadderId === currentLadder?.id);
@@ -150,11 +167,17 @@ export function OfficeAnalysis({
       }
     : undefined;
   const selected = eligible.find((person) => person.id === selectedPerson);
+  const selectedBand = payBands.find(
+    (band) => band.levelId === selected?.levelId,
+  );
   const metrics =
     workspace && selected ? employeeMetrics(workspace, selected) : undefined;
   const format = (amount: number) =>
     officeMoney(amount, data.organization.currency);
   const anyRange = workspace?.market.some(hasMarketRange);
+  const anyTeamMedian = levels.some(
+    (level) => teamMedianForLevel(eligible, level.id).sampleSize >= 2,
+  );
   const rangeMissing =
     workspace?.market.filter((point) => !hasMarketRange(point)).length ?? 0;
 
@@ -297,12 +320,32 @@ export function OfficeAnalysis({
               <>
                 {workspace &&
                 levels.length > 0 &&
-                (eligible.length > 0 || workspace.market.length > 0) ? (
+                (eligible.length > 0 ||
+                  workspace.market.length > 0 ||
+                  payBands.length > 0) ? (
                   <>
+                    <ul
+                      className="office-analysis-legend"
+                      aria-label="Chart legend"
+                    >
+                      {payBands.length > 0 ? (
+                        <li data-series="range">{bandLabel}</li>
+                      ) : (
+                        anyRange && <li data-series="range">Market P25–P75</li>
+                      )}
+                      {workspace.market.length > 0 && (
+                        <li data-series="market">Market median</li>
+                      )}
+                      {anyTeamMedian && <li data-series="team">Team median</li>}
+                      {eligible.length > 0 && (
+                        <li data-series="employee">Employee salary</li>
+                      )}
+                    </ul>
                     <CompensationChart
                       key={`${scope}:${key}:${currentLadder?.id}`}
                       responsive
                       workspace={workspace}
+                      payBands={payBands}
                       visibility={{
                         band: true,
                         market: true,
@@ -311,17 +354,6 @@ export function OfficeAnalysis({
                       }}
                       onSelect={(person) => setSelectedPerson(person.id)}
                     />
-                    <ul
-                      className="office-analysis-legend"
-                      aria-label="Chart legend"
-                    >
-                      {anyRange && <li data-series="range">Market P25–P75</li>}
-                      {workspace.market.length > 0 && (
-                        <li data-series="market">Market median</li>
-                      )}
-                      <li data-series="team">Team median</li>
-                      <li data-series="employee">Employee salary</li>
-                    </ul>
                   </>
                 ) : (
                   <p className="office-muted">
@@ -337,7 +369,7 @@ export function OfficeAnalysis({
                       chart.
                     </p>
                   )}
-                  {rangeMissing > 0 && (
+                  {!payBands.length && rangeMissing > 0 && (
                     <p>
                       Market range unavailable for {rangeMissing}{' '}
                       {rangeMissing === 1 ? 'level' : 'levels'} with incomplete
@@ -355,6 +387,8 @@ export function OfficeAnalysis({
                   <p className="office-chart-selection" role="status">
                     <strong>{selected.name}</strong> · {format(selected.salary)}{' '}
                     base salary
+                    {selectedBand &&
+                      ` · ${bandLabel} ${format(selectedBand.min)}–${format(selectedBand.max)}`}
                     {metrics.market &&
                       ` · Market median ${format(metrics.market.p50)}`}
                     {metrics.teamMedian !== null &&

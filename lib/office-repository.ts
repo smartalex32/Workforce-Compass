@@ -1,4 +1,6 @@
 import type {
+  ClearanceLevel,
+  CompanySize,
   OfficeWorkspaceData,
   OfficeWorkspaceScopedCommand,
   PayBandVersion,
@@ -74,7 +76,7 @@ export async function loadOfficeWorkspace(
 ): Promise<OfficeWorkspaceData | null> {
   const organization = await db
     .prepare(
-      'SELECT id, name, currency, workspace_revision FROM organizations WHERE id = ?',
+      'SELECT id, name, currency, company_size, workspace_revision FROM organizations WHERE id = ?',
     )
     .bind(organizationId)
     .first<Row>();
@@ -127,7 +129,7 @@ export async function loadOfficeWorkspace(
       .all<Row>(),
     db
       .prepare(
-        'SELECT id, employee_number, office_id, discipline_id, career_ladder_id, level_id, name, title, base_salary, annual_bonus, annual_equity, annual_benefits, location, start_date, team, manager_id, performance_rating, notes FROM employees WHERE organization_id = ? ORDER BY name',
+        'SELECT id, employee_number, office_id, discipline_id, career_ladder_id, level_id, name, title, base_salary, annual_bonus, annual_equity, annual_benefits, location, start_date, team, manager_id, performance_rating, notes, clearance_level, years_experience FROM employees WHERE organization_id = ? ORDER BY name',
       )
       .bind(organizationId)
       .all<Row>(),
@@ -144,6 +146,10 @@ export async function loadOfficeWorkspace(
       id: String(organization.id),
       name: String(organization.name),
       currency: String(organization.currency),
+      companySize:
+        organization.company_size == null
+          ? null
+          : (String(organization.company_size) as CompanySize),
     },
     role,
     offices: offices.results.map((r) => ({
@@ -212,6 +218,12 @@ export async function loadOfficeWorkspace(
             ? undefined
             : Number(r.performance_rating),
         notes: optional(r.notes),
+        clearanceLevel:
+          r.clearance_level == null
+            ? null
+            : (String(r.clearance_level) as ClearanceLevel),
+        yearsExperience:
+          r.years_experience == null ? null : Number(r.years_experience),
       }),
     ),
     bands: bands.results.map(
@@ -238,6 +250,7 @@ export async function createOfficeOrganization(
   name: string,
   currency: string,
   actor: string,
+  companySize: CompanySize | null = null,
 ) {
   const organizationId = id();
   const timestamp = now();
@@ -248,9 +261,9 @@ export async function createOfficeOrganization(
   await db.batch([
     db
       .prepare(
-        'INSERT INTO organizations (id, name, currency, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+        'INSERT INTO organizations (id, name, currency, company_size, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
       )
-      .bind(organizationId, name, currency, timestamp, timestamp),
+      .bind(organizationId, name, currency, companySize, timestamp, timestamp),
     db
       .prepare(
         'INSERT INTO planning_profiles (organization_id, version, state_json, updated_at) VALUES (?, 1, ?, ?)',
@@ -359,6 +372,15 @@ export async function executeOfficeCommand(
     ]);
     return marketId;
   }
+  if (command.action === 'organization-settings') {
+    await write([
+      db
+        .prepare('UPDATE organizations SET company_size = ? WHERE id = ?')
+        .bind(command.companySize, organizationId),
+      audit('organization.settings_saved', 'organization', organizationId),
+    ]);
+    return organizationId;
+  }
   if (command.action === 'person') {
     if (!(await belongs(db, 'offices', command.officeId, organizationId)))
       throw new OfficeWorkspaceError('Office was not found.');
@@ -382,8 +404,8 @@ export async function executeOfficeCommand(
       );
     const statements: DatabaseStatement[] = [
       db
-        .prepare(`INSERT INTO employees (id, organization_id, office_id, discipline_id, career_ladder_id, level_id, name, title, base_salary) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(id) DO UPDATE SET office_id = excluded.office_id, discipline_id = excluded.discipline_id, career_ladder_id = excluded.career_ladder_id, level_id = excluded.level_id, name = excluded.name, title = excluded.title, base_salary = excluded.base_salary WHERE employees.organization_id = excluded.organization_id`)
+        .prepare(`INSERT INTO employees (id, organization_id, office_id, discipline_id, career_ladder_id, level_id, name, title, base_salary, clearance_level, years_experience) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET office_id = excluded.office_id, discipline_id = excluded.discipline_id, career_ladder_id = excluded.career_ladder_id, level_id = excluded.level_id, name = excluded.name, title = excluded.title, base_salary = excluded.base_salary, clearance_level = CASE WHEN ? THEN excluded.clearance_level ELSE employees.clearance_level END, years_experience = CASE WHEN ? THEN excluded.years_experience ELSE employees.years_experience END WHERE employees.organization_id = excluded.organization_id`)
         .bind(
           personId,
           organizationId,
@@ -394,6 +416,10 @@ export async function executeOfficeCommand(
           command.name,
           command.title ?? null,
           command.salary,
+          command.clearanceLevel ?? null,
+          command.yearsExperience ?? null,
+          command.clearanceLevel !== undefined,
+          command.yearsExperience !== undefined,
         ),
     ];
     if (

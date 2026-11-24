@@ -14,6 +14,7 @@ import {
   Layers3,
   ListChecks,
   Plus,
+  Settings,
   Users,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -25,7 +26,9 @@ import { Button } from '@/components/ui/button';
 import { hasMarketRange } from '@/lib/domain';
 import { sampleWorkspace } from '@/lib/sample-data';
 import {
+  COMPANY_SIZES,
   formText,
+  type CompanySize,
   type Office,
   type OfficeWorkspaceCommand,
   type OfficeWorkspaceData,
@@ -131,19 +134,48 @@ function preferredOffice(workspace: OfficeWorkspaceData) {
   return workspace.offices[0]?.id ?? '';
 }
 
+function CompanySizeField({ value }: { value?: CompanySize | null }) {
+  return (
+    <label>
+      Company size
+      <select
+        className="office-input"
+        name="companySize"
+        defaultValue={value ?? ''}
+      >
+        <option value="">Not set</option>
+        {Object.entries(COMPANY_SIZES).map(([size, label]) => (
+          <option key={size} value={size}>
+            {label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 function OrganizationEditor({
   busy,
   save,
   close,
 }: {
   busy: boolean;
-  save: (name: string, currency: string) => Promise<void>;
+  save: (
+    name: string,
+    currency: string,
+    companySize: CompanySize | null,
+  ) => Promise<void>;
   close?: () => void;
 }) {
   function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    void save(formText(form, 'name'), formText(form, 'currency').toUpperCase());
+    const companySize = formText(form, 'companySize') as CompanySize | '';
+    void save(
+      formText(form, 'name'),
+      formText(form, 'currency').toUpperCase(),
+      companySize || null,
+    );
   }
   return (
     <form
@@ -179,6 +211,7 @@ function OrganizationEditor({
               required
             />
           </label>
+          <CompanySizeField />
         </div>
         <div className="office-actions">
           <Button type="submit">
@@ -195,6 +228,58 @@ function OrganizationEditor({
           )}
         </div>
       </fieldset>
+    </form>
+  );
+}
+
+function OrganizationSettings({
+  organization,
+  save,
+  close,
+}: {
+  organization: OfficeWorkspaceData['organization'];
+  save: OfficeWorkspaceSave;
+  close: () => void;
+}) {
+  const heading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    heading.current?.focus();
+  }, []);
+
+  async function submit(event: SubmitEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const companySize = formText(form, 'companySize') as CompanySize | '';
+    if (
+      await save({
+        action: 'organization-settings',
+        companySize: companySize || null,
+      })
+    )
+      close();
+  }
+
+  return (
+    <form
+      id="office-organization-settings"
+      className="office-panel office-panel-pad office-stack"
+      onSubmit={submit}
+    >
+      <div>
+        <h2 ref={heading} tabIndex={-1}>
+          Organization settings
+        </h2>
+        <p className="office-muted">{organization.name}</p>
+      </div>
+      <div className="office-form-grid">
+        <CompanySizeField value={organization.companySize} />
+      </div>
+      <div className="office-actions">
+        <Button type="submit">Save settings</Button>
+        <Button type="button" variant="outline" onClick={close}>
+          Cancel
+        </Button>
+      </div>
     </form>
   );
 }
@@ -335,6 +420,8 @@ export function OfficeWorkspace({
     null,
   );
   const [newOrganization, setNewOrganization] = useState(false);
+  const [organizationSettings, setOrganizationSettings] = useState(false);
+  const organizationSettingsTrigger = useRef<HTMLButtonElement>(null);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(!demo);
   const [error, setError] = useState('');
@@ -444,6 +531,8 @@ export function OfficeWorkspace({
         selectOffice(next.workspace, command.officeId);
       setSelectedPerson(next.entityId ?? null);
       setNotice(command.id ? 'Person updated.' : 'Person added to the office.');
+    } else if (command.action === 'organization-settings') {
+      setNotice('Organization settings saved.');
     } else if (command.action === 'assign') {
       setNotice(
         `${command.assignments.length} ${command.assignments.length === 1 ? 'office assignment' : 'office assignments'} confirmed.`,
@@ -456,6 +545,7 @@ export function OfficeWorkspace({
     setSection(next);
     setOfficeEditor(null);
     setNewOrganization(false);
+    setOrganizationSettings(false);
     setSelectedPerson(null);
     setNotice('');
     setError('');
@@ -463,6 +553,7 @@ export function OfficeWorkspace({
 
   function chooseOrganization(id: string) {
     if (id === 'new') {
+      setOrganizationSettings(false);
       setNewOrganization(true);
       return;
     }
@@ -475,6 +566,7 @@ export function OfficeWorkspace({
   const startOffice = () => {
     setOfficeEditor('create');
     setNewOrganization(false);
+    setOrganizationSettings(false);
     setSection('people');
   };
 
@@ -490,7 +582,39 @@ export function OfficeWorkspace({
             {demo && <span className="office-demo-label">Demo</span>}
             {data && !demo && (
               <span className="office-organization-name">
-                {data.organization.name}
+                {canEdit ? (
+                  <Button
+                    ref={organizationSettingsTrigger}
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    aria-label={`Organization settings for ${data.organization.name}`}
+                    title="Organization settings"
+                    aria-expanded={organizationSettings}
+                    aria-controls={
+                      organizationSettings
+                        ? 'office-organization-settings'
+                        : undefined
+                    }
+                    disabled={busy || loading}
+                    onClick={() => {
+                      setOfficeEditor(null);
+                      setNewOrganization(false);
+                      setOrganizationSettings((open) => !open);
+                    }}
+                  >
+                    <span className="office-organization-label">
+                      {data.organization.name}
+                    </span>
+                    <Settings aria-hidden="true" />
+                  </Button>
+                ) : (
+                  <>
+                    {data.organization.name}
+                    {data.organization.companySize &&
+                      ` · ${COMPANY_SIZES[data.organization.companySize]}`}
+                  </>
+                )}
               </span>
             )}
           </div>
@@ -612,11 +736,12 @@ export function OfficeWorkspace({
             <OrganizationEditor
               busy={busy}
               close={data ? () => setNewOrganization(false) : undefined}
-              save={async (name, currency) => {
+              save={async (name, currency, companySize) => {
                 const next = await mutate({
                   action: 'organization',
                   name,
                   currency,
+                  companySize,
                 });
                 if (next?.workspace) {
                   selectOffice(next.workspace, '');
@@ -628,6 +753,19 @@ export function OfficeWorkspace({
           ) : (
             <fieldset className="office-stack office-page" disabled={busy}>
               <div className="office-stack">
+                {organizationSettings && canEdit && (
+                  <OrganizationSettings
+                    key={data.organization.id}
+                    organization={data.organization}
+                    save={save}
+                    close={() => {
+                      setOrganizationSettings(false);
+                      requestAnimationFrame(() =>
+                        organizationSettingsTrigger.current?.focus(),
+                      );
+                    }}
+                  />
+                )}
                 {officeEditor && canEdit && (
                   <OfficeEditor
                     key={officeEditor === 'edit' ? office?.id : 'create'}
@@ -664,7 +802,10 @@ export function OfficeWorkspace({
                     canEdit={canEdit}
                     save={save}
                     newOffice={startOffice}
-                    editOffice={() => setOfficeEditor('edit')}
+                    editOffice={() => {
+                      setOrganizationSettings(false);
+                      setOfficeEditor('edit');
+                    }}
                     personId={selectedPerson}
                     onSelectPerson={setSelectedPerson}
                   />

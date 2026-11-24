@@ -89,6 +89,20 @@
   color: var(--office-muted);
   font-size: 0.75rem;
 }
+.office-organization-name {
+  max-inline-size: 100%;
+  overflow-wrap: anywhere;
+}
+.office-organization-name > [data-slot='button'] {
+  max-inline-size: 100%;
+  padding-inline: 0.4rem;
+  color: var(--office-muted);
+  font-size: inherit;
+}
+.office-organization-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .office-demo-link {
   font-size: 0.8rem;
 }
@@ -481,7 +495,10 @@
   background: var(--office-selected);
 }
 .office-analysis {
-  --analysis-band: #4777d8;
+  --compensation-band-fill: #dce8ff;
+  --compensation-band-edge: #7b97ca;
+  --compensation-median: #183a7a;
+  --compensation-surface: var(--office-paper);
 }
 .office-analysis .chart-frame {
   min-width: 0;
@@ -500,13 +517,6 @@
 .office-analysis :is(.axis-label, .axis-level) {
   fill: var(--office-muted);
   font-size: 12px;
-}
-.office-analysis :is(.market-curve, .band-boundary) {
-  stroke: var(--office-accent);
-}
-.office-analysis .market-observation circle {
-  fill: var(--office-paper);
-  stroke: var(--office-accent);
 }
 .office-analysis .employee-point circle:last-of-type {
   fill: var(--office-ink);
@@ -534,13 +544,15 @@
 }
 .office-analysis-legend li::before {
   content: '';
-  width: 0.85rem;
-  height: 0.13rem;
-  background: var(--office-accent);
+  width: 1rem;
+  height: 0.19rem;
+  border-radius: 2px;
+  background: var(--compensation-median);
 }
 .office-analysis-legend [data-series='range']::before {
-  height: 0.45rem;
-  background: #d4e1ff;
+  height: 0.64rem;
+  border: 1px solid var(--compensation-band-edge);
+  background: var(--compensation-band-fill);
 }
 .office-analysis-legend [data-series='team']::before {
   height: 0;
