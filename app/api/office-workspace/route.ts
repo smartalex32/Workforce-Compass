@@ -1,7 +1,11 @@
 import type { AppDatabase } from '@/db';
 import { getDb, runtimeEnv } from '@/db/runtime';
 import { authorizeApiRequest } from '@/lib/api-auth';
-import type { OfficeWorkspaceCommand } from '@/lib/office-workspace';
+import {
+  CLEARANCE_LEVELS,
+  COMPANY_SIZES,
+  type OfficeWorkspaceCommand,
+} from '@/lib/office-workspace';
 import {
   OfficeWorkspaceError,
   OfficeWorkspaceConflict,
@@ -29,6 +33,12 @@ function text(value: unknown) {
 function validText(value: unknown, max = 160) {
   const valueText = text(value);
   return valueText.length > 0 && valueText.length <= max;
+}
+function enumValue<T extends Record<string, string>>(
+  values: T,
+  value: unknown,
+): value is keyof T {
+  return typeof value === 'string' && Object.hasOwn(values, value);
 }
 function date(value: unknown) {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value))
@@ -77,11 +87,7 @@ async function response(
       { error: 'This identity is not a workspace member.' },
       { status: 403 },
     );
-  const workspace = await loadOfficeWorkspace(
-    db,
-    selectedOrganizationId,
-    role,
-  );
+  const workspace = await loadOfficeWorkspace(db, selectedOrganizationId, role);
   if (!workspace)
     return Response.json(
       { error: 'The requested office workspace was not found.' },
@@ -106,7 +112,13 @@ export async function GET(request: Request) {
 function validate(input: unknown): input is OfficeWorkspaceCommand {
   if (!record(input) || typeof input.action !== 'string') return false;
   if (input.action === 'organization')
-    return validText(input.name) && /^[A-Za-z]{3}$/.test(text(input.currency));
+    return (
+      validText(input.name) &&
+      /^[A-Za-z]{3}$/.test(text(input.currency)) &&
+      (input.companySize === undefined ||
+        input.companySize === null ||
+        enumValue(COMPANY_SIZES, input.companySize))
+    );
   if (!text(input.organizationId)) return false;
   if (
     input.revision !== undefined &&
@@ -122,6 +134,10 @@ function validate(input: unknown): input is OfficeWorkspaceCommand {
       (input.laborMarketId === null || validText(input.laborMarketId))
     );
   if (input.action === 'market') return validText(input.name);
+  if (input.action === 'organization-settings')
+    return (
+      input.companySize === null || enumValue(COMPANY_SIZES, input.companySize)
+    );
   if (input.action === 'person')
     return (
       validText(input.name) &&
@@ -133,7 +149,15 @@ function validate(input: unknown): input is OfficeWorkspaceCommand {
       (input.salary === null ||
         (typeof input.salary === 'number' &&
           Number.isFinite(input.salary) &&
-          input.salary > 0))
+          input.salary > 0)) &&
+      (input.clearanceLevel === undefined ||
+        input.clearanceLevel === null ||
+        enumValue(CLEARANCE_LEVELS, input.clearanceLevel)) &&
+      (input.yearsExperience === undefined ||
+        input.yearsExperience === null ||
+        (typeof input.yearsExperience === 'number' &&
+          Number.isFinite(input.yearsExperience) &&
+          input.yearsExperience >= 0))
     );
   if (input.action === 'assign')
     return (
@@ -218,6 +242,7 @@ export async function POST(request: Request) {
         input.name.trim(),
         input.currency.toUpperCase(),
         actor,
+        input.companySize ?? null,
       );
       return response(db, request, organizationId, organizationId);
     }

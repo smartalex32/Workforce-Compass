@@ -6,7 +6,7 @@ The workspace opens on the office roster. Create an office by name, add people w
 
 The product is built around three linked views:
 
-- Compensation curve — P25–P75 market band, market median, team-level median curve, and employee observations.
+- Compensation curve — a shaded pay band in Office Analysis, with the market P25–P75 range when no pay bands apply. The market median has a solid line and the team median has a dashed line.
 - Replacement exposure — modeled hiring, vacancy, and ramp cost by employee, with a stacked summary across career levels.
 - Market gap × cost — compensation gap and replacement exposure in one planning view.
 
@@ -15,6 +15,7 @@ Retention exposure is a planning metric, not a prediction that an employee will 
 ## Current capabilities
 
 - Manage office rosters and transfers. Review suggested matches for legacy location text in **Unassigned** before applying office assignments. New workspaces start empty, with a separate read-only demo at `/demo`.
+- Record optional years of experience and security clearance in a person's profile. Use the organization name in the workspace header to set company size to Small, Mid-size, or Large.
 - Use an editable engineering starter ladder or create a blank ladder for a job family or management track. Rename and reorder levels without changing their identity, and retire levels with existing references.
 - Publish dated internal base-salary bands with an optional midpoint. A labor market override takes precedence while effective, and offices sharing the market use the same override. Preview changed bands before publishing.
 - Import purchased CSV or XLSX surveys through worksheet selection, column and job matching, and a row-by-row review before saving. Save reusable mappings. The import accepts annual base salary for one market and currency at a time, with a positive P50 and optional P25/P75. A median-only row never fills in a missing market range.
@@ -110,7 +111,7 @@ GitHub Actions runs the same locked-install, unit/integration test, Chromium acc
 
 ## Workspace persistence API
 
-- `GET|POST /api/office-workspace` loads the authorized organization and roster or applies a scoped office, person, ladder, level, or pay-band change. Read access follows workspace membership. Analyst or admin access is required for changes within an existing workspace.
+- `GET|POST /api/office-workspace` loads the authorized organization and roster or applies a scoped office, person, organization setting, ladder, level, or pay-band change. Read access follows workspace membership. Analyst or admin access is required for changes within an existing workspace.
 - `GET|POST /api/survey-import` loads saved mappings or previews and applies reviewed survey rows into a named market dataset.
 - `GET /api/workspace` loads the default persisted context.
 - `GET /api/workspace?organizationId=…&laborMarketId=…&disciplineId=…&ladderId=…&datasetId=…` loads an explicit, relationship-validated context and returns 404 when the selection is invalid.

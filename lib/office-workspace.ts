@@ -1,6 +1,21 @@
 import type { Employee, Workspace } from './domain';
 import type { PlanningRole } from './workforce-planning';
 
+export const CLEARANCE_LEVELS = {
+  none: 'None',
+  confidential: 'Confidential',
+  secret: 'Secret',
+  'top-secret': 'Top Secret',
+} as const;
+export type ClearanceLevel = keyof typeof CLEARANCE_LEVELS;
+
+export const COMPANY_SIZES = {
+  small: 'Small',
+  mid: 'Mid-size',
+  large: 'Large',
+} as const;
+export type CompanySize = keyof typeof COMPANY_SIZES;
+
 export type Office = { id: string; name: string; laborMarketId: string | null };
 export type OfficeLadder = { id: string; name: string; disciplineId: string };
 export type OfficeLevel = {
@@ -22,6 +37,8 @@ export type RosterPerson = Omit<
   careerLadderId: string | null;
   levelId: string | null;
   salary: number | null;
+  clearanceLevel?: ClearanceLevel | null;
+  yearsExperience?: number | null;
 };
 export type BandValues = {
   levelId: string;
@@ -37,7 +54,9 @@ export type PayBandVersion = {
 };
 
 export type OfficeWorkspaceData = {
-  organization: Workspace['organization'];
+  organization: Workspace['organization'] & {
+    companySize?: CompanySize | null;
+  };
   revision?: number;
   role: PlanningRole;
   offices: Office[];
@@ -71,7 +90,10 @@ export type OfficeWorkspaceScopedCommand =
       title?: string;
       levelId: string | null;
       salary: number | null;
+      clearanceLevel?: ClearanceLevel | null;
+      yearsExperience?: number | null;
     }
+  | { action: 'organization-settings'; companySize: CompanySize | null }
   | { action: 'assign'; assignments: { personId: string; officeId: string }[] }
   | {
       action: 'ladder';
@@ -104,8 +126,16 @@ export type OfficeWorkspaceScopedCommand =
     };
 
 export type OfficeWorkspaceCommand =
-  | { action: 'organization'; name: string; currency: string }
-  | (OfficeWorkspaceScopedCommand & { organizationId: string; revision?: number });
+  | {
+      action: 'organization';
+      name: string;
+      currency: string;
+      companySize?: CompanySize | null;
+    }
+  | (OfficeWorkspaceScopedCommand & {
+      organizationId: string;
+      revision?: number;
+    });
 export type OfficeWorkspaceSave = (
   command: OfficeWorkspaceScopedCommand,
 ) => Promise<boolean>;

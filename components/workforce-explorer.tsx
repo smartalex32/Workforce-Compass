@@ -35,6 +35,7 @@ import { EmployeeDialog, WorkspaceDialog } from '@/components/management-dialogs
 import { EmployeeDirectory } from '@/components/employee-directory';
 import { PlanningCenter } from '@/components/planning-center';
 import type { Employee, Workspace } from '@/lib/domain';
+import type { BandValues } from '@/lib/office-workspace';
 import type {
   WorkspaceContexts,
   WorkspaceSelection,
@@ -135,11 +136,13 @@ export function CompensationChart({
   visibility,
   onSelect,
   responsive = false,
+  payBands = [],
 }: {
   workspace: Workspace;
   visibility: Visibility;
   onSelect: (employee: Employee) => void;
   responsive?: boolean;
+  payBands?: readonly BandValues[];
 }) {
   const [hoveredEmployee, setHoveredEmployee] = useState<{
     employee: Employee;
@@ -162,14 +165,25 @@ export function CompensationChart({
   const frame = small ? { left: 59, right: 24, top: 20, bottom: 48 } : { left: 78, right: 30, top: 28, bottom: 58 };
   const levels = [...workspace.levels].sort((a, b) => a.order - b.order);
   const validMarket = workspace.market.filter(validateMarketPoint);
+  const showInternalBand = payBands.length > 0;
+  const ranges = showInternalBand
+    ? payBands
+    : validMarket.filter(hasMarketRange).map(({ levelId, p25, p75 }) => ({
+        levelId, min: p25, max: p75,
+      }));
+  const rangesByLevel = new Map(ranges.map((range) => [range.levelId, range]));
+  const bandSeries = levels.flatMap((level, index) => {
+    const range = rangesByLevel.get(level.id);
+    return range ? [{ index, min: range.min, max: range.max }] : [];
+  });
   const validEmployees = workspace.employees.filter(
     (employee) => Number.isFinite(employee.salary) && employee.salary > 0,
   );
-  const allValues = validMarket.flatMap((point) => [point.p25, point.p50, point.p75].filter((value) => value !== null));
-  const salaries = validEmployees
-    .map((employee) => employee.salary)
-    .filter((salary) => Number.isFinite(salary) && salary > 0);
-  const chartValues = [...allValues, ...salaries];
+  const chartValues = [
+    ...bandSeries.flatMap((band) => [band.min, band.max]),
+    ...validMarket.map((point) => point.p50),
+    ...validEmployees.map((employee) => employee.salary),
+  ];
   const rawMin = chartValues.length
     ? chartValues.reduce((lowest, value) => Math.min(lowest, value), Number.POSITIVE_INFINITY)
     : 0;
@@ -180,6 +194,14 @@ export function CompensationChart({
   const max = Math.ceil((rawMax + 15000) / 25000) * 25000;
   const innerWidth = width - frame.left - frame.right;
   const innerHeight = height - frame.top - frame.bottom;
+  const labelCount = responsive
+    ? Math.min(levels.length, Math.max(2, Math.floor(innerWidth / (small ? 44 : 65)) + 1))
+    : levels.length;
+  const labeledLevels = new Set(
+    Array.from({ length: labelCount }, (_, index) =>
+      Math.round((index * (levels.length - 1)) / Math.max(1, labelCount - 1)),
+    ),
+  );
   const xForIndex = (index: number) =>
     frame.left + (levels.length === 1 ? .5 : index / Math.max(1, levels.length - 1)) * innerWidth;
   const yForValue = (value: number) =>
@@ -198,30 +220,31 @@ export function CompensationChart({
     )
     .sort((a, b) => a.index - b.index);
 
-  const curve = (key: 'p25' | 'p50' | 'p75') =>
-    splitContiguousSeries(
-      marketSeries.flatMap(({ point, index }) => {
-        if (key !== 'p50' && !hasMarketRange(point)) return [];
-        const value = point[key];
-        return value === null ? [] : [{ x: index, y: value }];
-      }),
-    ).map((segment) =>
+  const projectSeries = (points: Array<{ x: number; y: number }>) =>
+    splitContiguousSeries(points).map((segment) =>
       monotoneCubicInterpolate(segment, 20).map((point) => ({
         x: xForIndex(point.x),
         y: yForValue(point.y),
       })),
     );
-
-  const lowCurves = curve('p25');
-  const midCurves = curve('p50');
-  const highCurves = curve('p75');
-  const bandPaths = lowCurves.map((lowCurve, index) => {
-    const highCurve = highCurves[index];
-    return `${pathFrom(lowCurve)} ${highCurve
-      .slice()
-      .reverse()
-      .map((point) => `L${point.x.toFixed(1)},${point.y.toFixed(1)}`)
-      .join(' ')} Z`;
+  const lowCurves = projectSeries(
+    bandSeries.map(({ index, min }) => ({ x: index, y: min })),
+  );
+  const highCurves = projectSeries(
+    bandSeries.map(({ index, max }) => ({ x: index, y: max })),
+  );
+  const midCurves = projectSeries(
+    marketSeries.map(({ point, index }) => ({ x: index, y: point.p50 })),
+  );
+  const bandPaths = highCurves.map((upper, index) => {
+    const lower = lowCurves[index];
+    if (upper.length === 1) {
+      const halfWidth = small ? 6 : 9;
+      const left = upper[0].x - halfWidth;
+      const right = upper[0].x + halfWidth;
+      return `M${left},${upper[0].y} H${right} V${lower[0].y} H${left} Z`;
+    }
+    return `${pathFrom([...upper, ...lower.slice().reverse()])} Z`;
   });
   const teamPoints = levels.flatMap((level, index) => {
     const result = teamMedianForLevel(workspace.employees, level.id);
@@ -229,12 +252,12 @@ export function CompensationChart({
       ? []
       : [{ x: index, y: result.median }];
   });
-  const teamCurves = splitContiguousSeries(teamPoints).map((segment) =>
-    monotoneCubicInterpolate(segment, 20).map((point) => ({
-      x: xForIndex(point.x),
-      y: yForValue(point.y),
-    })),
-  );
+  const teamCurves = projectSeries(teamPoints);
+  const visibleSeries = [
+    visibility.band && bandPaths.length && (showInternalBand ? 'pay band' : 'market P25–P75 range'),
+    visibility.market && marketSeries.length && 'market median',
+    visibility.team && teamPoints.length && 'team median',
+  ].filter(Boolean).join(', ');
   const ticks = Array.from(
     { length: 6 },
     (_, index) => min + ((max - min) * index) / 5,
@@ -246,13 +269,9 @@ export function CompensationChart({
         className="primary-chart"
         viewBox={`0 0 ${width} ${height}`}
         role="img"
-        aria-label="Employee compensation plotted against the selected market range and team median curve"
+        aria-label={`Employee compensation plotted by job level${visibleSeries ? `, showing ${visibleSeries}` : ''}`}
       >
         <defs>
-          <linearGradient id={`${chartId}-band`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--analysis-band, #5ed3c2)" stopOpacity="0.25" />
-            <stop offset="100%" stopColor="var(--analysis-band, #5ed3c2)" stopOpacity="0.07" />
-          </linearGradient>
           <filter id={`${chartId}-shadow`} x="-40%" y="-40%" width="180%" height="180%">
             <feDropShadow dx="0" dy="3" stdDeviation="4" floodOpacity="0.18" />
           </filter>
@@ -281,7 +300,6 @@ export function CompensationChart({
         })}
         {levels.map((level, index) => {
           const x = xForIndex(index);
-          const labelEvery = responsive ? Math.max(1, Math.ceil(levels.length / Math.max(1, Math.floor(innerWidth / 65)))) : 1;
           return (
             <g key={level.id}>
               <line
@@ -291,7 +309,7 @@ export function CompensationChart({
                 y1={frame.top}
                 y2={height - frame.bottom}
               />
-              {index % labelEvery === 0 && <text
+              {labeledLevels.has(index) && <text
                 className="axis-level"
                 x={x}
                 y={height - 20}
@@ -303,33 +321,8 @@ export function CompensationChart({
           );
         })}
         {visibility.band && bandPaths.map((bandPath, index) => (
-          <path key={`band-${index}`} d={bandPath} fill={`url(#${chartId}-band)`} />
+          <path key={`band-${index}`} d={bandPath} className="compensation-band" />
         ))}
-        {visibility.band && (
-          <>
-            {lowCurves.map((curvePoints, index) => (
-              <path key={`low-${index}`} d={pathFrom(curvePoints)} className="band-boundary" />
-            ))}
-            {highCurves.map((curvePoints, index) => (
-              <path key={`high-${index}`} d={pathFrom(curvePoints)} className="band-boundary" />
-            ))}
-          </>
-        )}
-        {visibility.market && (
-          <>
-            {midCurves.map((curvePoints, index) => (
-              <path key={`market-${index}`} d={pathFrom(curvePoints)} className="market-curve" />
-            ))}
-            {marketSeries.map(({ point, index }) => (
-              <g key={`market-observation-${point.levelId}`} className="market-observation">
-                <title>{`${levels[index].name}: P50 ${formatMoney(point.p50, workspace.organization.currency)}${hasMarketRange(point) ? `, P25–P75 ${formatMoney(point.p25, workspace.organization.currency)}–${formatMoney(point.p75, workspace.organization.currency)}` : ', market range unavailable'}`}</title>
-                {hasMarketRange(point) && <circle cx={xForIndex(index)} cy={yForValue(point.p25)} r="3" />}
-                <circle cx={xForIndex(index)} cy={yForValue(point.p50)} r="4" />
-                {hasMarketRange(point) && <circle cx={xForIndex(index)} cy={yForValue(point.p75)} r="3" />}
-              </g>
-            ))}
-          </>
-        )}
         {visibility.team && (
           <>
             {teamCurves.map((curvePoints, index) => curvePoints.length > 1 && (
@@ -340,6 +333,38 @@ export function CompensationChart({
                 <title>{`${levels[point.x].name} team median: ${formatMoney(point.y, workspace.organization.currency)}`}</title>
               </circle>
             ))}
+          </>
+        )}
+        {visibility.market && (
+          <>
+            {midCurves.map((curvePoints, index) => {
+              if (curvePoints.length === 1) return null;
+              const path = pathFrom(curvePoints);
+              return (
+                <g key={`market-${index}`}>
+                  <path d={path} className="market-curve-halo" />
+                  <path d={path} className="market-curve" />
+                </g>
+              );
+            })}
+            {marketSeries.map(({ point, index }) => {
+              const shownRange = visibility.band && !showInternalBand && hasMarketRange(point)
+                ? point
+                : null;
+              return (
+                <g key={`market-observation-${point.levelId}`} className="market-observation">
+                  <title>{`${levels[index].name}: P50 ${formatMoney(point.p50, workspace.organization.currency)}${hasMarketRange(point) ? `, P25–P75 ${formatMoney(point.p25, workspace.organization.currency)}–${formatMoney(point.p75, workspace.organization.currency)}` : ', market range unavailable'}`}</title>
+                  {shownRange && <circle cx={xForIndex(index)} cy={yForValue(shownRange.p25)} r="2.6" />}
+                  <circle
+                    className="market-median-observation"
+                    cx={xForIndex(index)}
+                    cy={yForValue(point.p50)}
+                    r="3.5"
+                  />
+                  {shownRange && <circle cx={xForIndex(index)} cy={yForValue(shownRange.p75)} r="2.6" />}
+                </g>
+              );
+            })}
           </>
         )}
         {visibility.employees &&
@@ -387,7 +412,7 @@ export function CompensationChart({
               >
                 <title>{`${employee.name} · ${levels[index].name} · ${formatMoney(employee.salary, workspace.organization.currency)}`}</title>
                 <circle cx={x} cy={y} r="12" fill="transparent" />
-                <circle cx={x} cy={y} r="6.5" filter={responsive ? undefined : `url(#${chartId}-shadow)`} />
+                <circle cx={x} cy={y} r={small ? 4.5 : 6.5} filter={responsive ? undefined : `url(#${chartId}-shadow)`} />
                 <text x={x} y={y - 15} textAnchor="middle" className="point-name">
                   {!responsive && [6, 9, 11].includes(employeeIndex)
                     ? employee.name.split(' ')[0]
@@ -1457,7 +1482,7 @@ export function WorkforceExplorer({
             <div className="legend-row" aria-label="Chart layers">
               <LegendToggle
                 label="Market range"
-                color="#5ed3c2"
+                color="#70aaa0"
                 active={visibility.band}
                 onClick={() =>
                   setVisibility((state) => ({ ...state, band: !state.band }))
@@ -1466,7 +1491,7 @@ export function WorkforceExplorer({
               />
               <LegendToggle
                 label="Market median"
-                color="#208d83"
+                color="#155952"
                 active={visibility.market}
                 onClick={() =>
                   setVisibility((state) => ({ ...state, market: !state.market }))
